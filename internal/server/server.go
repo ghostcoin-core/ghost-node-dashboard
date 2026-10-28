@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"runtime"
 	"strings"
 	"time"
 
@@ -31,6 +32,16 @@ type Config struct {
 	Port int
 	Key  string
 	Node status.Caller
+
+	// NodeDir is the node's directory, where miner-threads lives.
+	NodeDir string
+	// LogicalCores is the computer's core count; 0 means runtime.NumCPU.
+	LogicalCores int
+	// AutoUpdate reports whether the update service is installed; nil
+	// means status.AutoUpdateInstalled.
+	AutoUpdate func() *bool
+	// Now is the clock; nil means time.Now.
+	Now func() time.Time
 }
 
 type handler struct {
@@ -39,6 +50,8 @@ type handler struct {
 	hosts   map[string]bool
 	origins map[string]bool
 	node    status.Caller
+	nodeEnv status.NodeEnv
+	mining  status.MiningEnv
 	mux     *http.ServeMux
 }
 
@@ -50,7 +63,22 @@ func New(cfg Config) http.Handler {
 		hosts:   map[string]bool{},
 		origins: map[string]bool{},
 		node:    cfg.Node,
-		mux:     http.NewServeMux(),
+		nodeEnv: status.NodeEnv{
+			Uptime:     &status.Uptime{},
+			AutoUpdate: cfg.AutoUpdate,
+			Now:        cfg.Now,
+		},
+		mining: status.MiningEnv{NodeDir: cfg.NodeDir, LogicalCores: cfg.LogicalCores},
+		mux:    http.NewServeMux(),
+	}
+	if h.nodeEnv.AutoUpdate == nil {
+		h.nodeEnv.AutoUpdate = status.AutoUpdateInstalled
+	}
+	if h.mining.LogicalCores <= 0 {
+		h.mining.LogicalCores = runtime.NumCPU()
+	}
+	if p, ok := cfg.Node.(interface{ Path() string }); ok {
+		h.nodeEnv.IPCPath = p.Path()
 	}
 	for _, name := range []string{"127.0.0.1", "localhost"} {
 		host := fmt.Sprintf("%s:%d", name, cfg.Port)
@@ -65,6 +93,9 @@ func New(cfg Config) http.Handler {
 	h.mux.HandleFunc("GET /{$}", h.index)
 	h.mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
 	h.mux.HandleFunc("GET /api/status", h.status)
+	h.mux.HandleFunc("GET /api/node", h.nodePanel)
+	h.mux.HandleFunc("GET /api/mining", h.miningPanel)
+	h.mux.HandleFunc("GET /api/network", h.networkPanel)
 	return h
 }
 
@@ -152,9 +183,30 @@ func (h *handler) index(w http.ResponseWriter, r *http.Request) {
 func (h *handler) status(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), StatusTimeout)
 	defer cancel()
-	st := status.Fetch(ctx, h.node)
+	writeJSON(w, status.Fetch(ctx, h.node))
+}
+
+func (h *handler) nodePanel(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), StatusTimeout)
+	defer cancel()
+	writeJSON(w, status.FetchNode(ctx, h.node, h.nodeEnv))
+}
+
+func (h *handler) miningPanel(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), StatusTimeout)
+	defer cancel()
+	writeJSON(w, status.FetchMining(ctx, h.node, h.mining))
+}
+
+func (h *handler) networkPanel(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), StatusTimeout)
+	defer cancel()
+	writeJSON(w, status.FetchNetwork(ctx, h.node))
+}
+
+func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(st)
+	_ = json.NewEncoder(w).Encode(v)
 }
 
 const unauthorizedPage = `<!doctype html>

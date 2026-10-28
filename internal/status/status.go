@@ -115,11 +115,15 @@ func lost(err error) bool {
 }
 
 func notRunning(err error) Status {
-	msg := ipc.ErrNodeNotRunning.Error()
-	if !errors.Is(err, ipc.ErrNodeNotRunning) {
-		msg = "cannot reach the node: " + err.Error()
+	return Status{Running: false, Error: downMessage(err)}
+}
+
+// downMessage is the error a panel shows when the node did not answer.
+func downMessage(err error) string {
+	if errors.Is(err, ipc.ErrNodeNotRunning) {
+		return ipc.ErrNodeNotRunning.Error()
 	}
-	return Status{Running: false, Error: msg}
+	return "cannot reach the node: " + err.Error()
 }
 
 var errBadQuantity = errors.New("not a hex quantity")
