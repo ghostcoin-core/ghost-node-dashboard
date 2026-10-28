@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Ghost Node Dashboard</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/app.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <svg class="logo" viewBox="0 0 100 100" width="36" height="36" role="img" aria-label="Ghost">
+    <g fill="#0E0D1A">
+      <rect x="0" y="0" width="26" height="26"/>
+      <rect x="37" y="0" width="26" height="26"/>
+      <rect x="74" y="0" width="26" height="26"/>
+      <rect x="0" y="37" width="26" height="26"/>
+      <rect x="74" y="37" width="26" height="26"/>
+      <rect x="0" y="74" width="26" height="26"/>
+      <rect x="37" y="74" width="26" height="26"/>
+      <rect x="74" y="74" width="26" height="26"/>
+    </g>
+    <path fill="#6B4CFF" d="M37 50a13 13 0 0 1 26 0v13l-6.5-5.2-6.5 5.2-6.5-5.2-6.5 5.2z"/>
+  </svg>
+  <h1>Ghost Node</h1>
+</header>
+<main>
+  <section class="card" aria-labelledby="status-title">
+    <div class="card-head">
+      <h2 id="status-title">Node status</h2>
+      <span id="state" class="pill pill-wait">Checking…</span>
+    </div>
+    <p id="message" class="message" hidden></p>
+    <dl class="fields">
+      <div><dt>Network (chain ID)</dt><dd id="chainId" class="mono">–</dd></div>
+      <div><dt>Block</dt><dd id="blockNumber" class="mono">–</dd></div>
+      <div><dt>Peers</dt><dd id="peerCount" class="mono">–</dd></div>
+      <div><dt>Syncing</dt><dd id="syncing">–</dd></div>
+      <div><dt>Mining</dt><dd id="mining">–</dd></div>
+      <div class="wide"><dt>Payout address</dt><dd id="payoutAddress" class="mono">–</dd></div>
+      <div class="wide"><dt>Client version</dt><dd id="clientVersion" class="mono">–</dd></div>
+    </dl>
+    <p class="updated">Updated <span id="updated">never</span></p>
+  </section>
+</main>
+</body>
+</html>
