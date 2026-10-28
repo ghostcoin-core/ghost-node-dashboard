@@ -74,8 +74,39 @@
       <button type="button" id="mining-pause" class="action" hidden>Pause mining</button>
       <button type="button" id="mining-resume" class="action" hidden>Resume mining</button>
     </div>
+    <form class="controls" id="payout-form">
+      <label for="payout-input">Payout address (where rewards go)</label>
+      <div class="control-row">
+        <input type="text" id="payout-input" class="mono" maxlength="42" spellcheck="false" autocomplete="off"
+          placeholder="0x followed by 40 hex characters" pattern="0x[0-9a-fA-F]{40}">
+        <button type="submit" id="payout-save" class="action">Save</button>
+      </div>
+    </form>
     <p class="message" id="control-result" role="status" hidden></p>
+    <p class="note">A new payout address applies at once and is saved in the node's <code>config.toml</code>, so restarts keep it. Only the address is needed: never enter a private key or recovery words here.</p>
     <p class="note">The core count is saved in the node folder, so restarts and updates keep it. While mining is paused the node keeps syncing. For now a node restart resumes mining, until the node installer learns to read the <code>mining-paused</code> file.</p>
+    <p class="updated">Updated <span data-updated>never</span></p>
+  </section>
+
+  <section class="card" id="service-panel" aria-labelledby="service-title">
+    <div class="card-head">
+      <h2 id="service-title">Restart and updates</h2>
+      <span class="pill pill-wait" data-state>Checking…</span>
+    </div>
+    <p class="message" data-message hidden></p>
+    <dl class="fields">
+      <div><dt>Daily updates</dt><dd id="updates-state">–</dd></div>
+      <div><dt>Last update run</dt><dd id="updates-last">–</dd></div>
+      <div class="wide"><dt>Update service</dt><dd id="updates-service" class="mono">–</dd></div>
+    </dl>
+    <div class="control-row">
+      <button type="button" id="node-restart" class="action">Restart node</button>
+      <button type="button" id="updates-run" class="action">Update now</button>
+      <button type="button" id="updates-on" class="action" hidden>Turn daily updates on</button>
+      <button type="button" id="updates-off" class="action" hidden>Turn daily updates off</button>
+    </div>
+    <p class="message" id="service-result" role="status" hidden></p>
+    <pre class="output" id="updates-output" hidden></pre>
     <p class="updated">Updated <span data-updated>never</span></p>
   </section>
 

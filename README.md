@@ -46,6 +46,27 @@ The Mining panel has a cores slider, from 1 to the computer's logical core count
 
 After each change the dashboard reads the node back (`eth_mining`) and says in plain words what happened, or what went wrong. The controls are `POST /api/mining/cores` (body `{"cores": n}`, a whole number in range, else 400), `POST /api/mining/pause` and `POST /api/mining/resume`, behind the dashboard key and the Origin check.
 
+### Payout address
+
+The Mining panel has a payout address field. It takes `0x` and 40 hex characters; an address in mixed case must match its checksum (EIP-55), and one all in lower or upper case is taken as is. Saving asks the node to pay to it at once (`miner_setEtherbase`) and rewrites the `Etherbase = "…"` line of `<node-dir>/config.toml`, so restarts keep it. The file is replaced in one step, keeps its permissions, and no other line changes (when the line is missing it is added under `[Eth.Miner]`, as the installer does). A missing `config.toml` is not created. The new address shows on the Mining panel, and the Rewards panel starts counting blocks for it. The control is `POST /api/mining/payout` (body `{"address": "0x…"}`, else 400). Only the address is needed: the dashboard never asks for a private key or recovery words.
+
+### Restart and updates
+
+The Restart and updates panel restarts the node, shows whether daily updates are on and when they last ran, runs an update at once and turns daily updates on or off. The dashboard reads the service names from the files the installer wrote: the launchd agent in `~/Library/LaunchAgents` (macOS) or the systemd user unit in `${XDG_CONFIG_HOME:-~/.config}/systemd/user` (Linux) whose program is `<node-dir>/bin/geth` is the node, and the one whose program is `<node-dir>/update` is the updater (with the installer, `com.ghostcoin.node` and `com.ghostcoin.node.update`, or `ghost-node.service` and `ghost-node-update.timer`).
+
+| Action | macOS | Linux |
+| --- | --- | --- |
+| Restart node | `launchctl kickstart -k gui/<uid>/<node label>` | `systemctl --user restart <node unit>` |
+| Updates on | `launchctl bootstrap gui/<uid> <update plist>` | `systemctl --user enable --now <update timer>` |
+| Updates off | `launchctl bootout gui/<uid>/<update label>` (the plist is kept) | `systemctl --user disable --now <update timer>` |
+| Update now | `<node-dir>/update` | `<node-dir>/update` |
+| On or off | `launchctl print gui/<uid>/<update label>` | `systemctl --user is-enabled <update timer>` |
+| Last run | time of the agent's log (`<node-dir>/update.log`) | the timer's `LastTriggerUSec` |
+
+After a restart the dashboard waits up to a minute for the node to answer again and says so. "Update now" shows the updater's output (the last 64 KiB). Commands run with fixed arguments, never through a shell, and one restart or update runs at a time. On macOS the update agent stays in `~/Library/LaunchAgents`, so launchd loads it again at the next login, and the updater itself may turn daily updates back on when it reinstalls the node; the panel always shows the state read back. On Windows the node starts from its login entry (`geth service start`), not a scheduled task, so these controls say they are not available there yet.
+
+The controls are `POST /api/node/restart`, `POST /api/updates/run`, `POST /api/updates/on` and `POST /api/updates/off`, and the state is `GET /api/updates`, all behind the dashboard key and the Origin check.
+
 The estimates use a target block time of 15 seconds. Each panel reads one endpoint, behind the dashboard key: `/api/node`, `/api/mining`, `/api/network`, `/api/rewards` and `/api/log`.
 
 ### Access

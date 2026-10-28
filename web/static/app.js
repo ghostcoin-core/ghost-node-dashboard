@@ -181,7 +181,7 @@
 
   function setControlsBusy(busy) {
     controlBusy = busy;
-    ["cores-apply", "mining-pause", "mining-resume"].forEach(function (id) {
+    ["cores-apply", "mining-pause", "mining-resume", "payout-save"].forEach(function (id) {
       el(id).disabled = busy;
     });
   }
@@ -193,29 +193,33 @@
     box.className = failed ? "message error" : "message";
   }
 
-  function control(url, body) {
-    if (controlBusy) return;
-    setControlsBusy(true);
-    showResult("Asking the node…", false);
-    fetch(url, {
+  function postJSON(url, body) {
+    return fetch(url, {
       method: "POST",
       credentials: "same-origin",
       cache: "no-store",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body || {}),
-    })
-      .then(function (r) {
-        if (r.status === 401) {
-          throw new Error("This browser is not signed in. Open the dashboard from the link the installer printed.");
-        }
-        return r.json().catch(function () {
-          throw new Error("The dashboard answered " + r.status + ".");
-        });
-      })
+    }).then(function (r) {
+      if (r.status === 401) {
+        throw new Error("This browser is not signed in. Open the dashboard from the link the installer printed.");
+      }
+      return r.json().catch(function () {
+        throw new Error("The dashboard answered " + r.status + ".");
+      });
+    });
+  }
+
+  function control(url, body, after) {
+    if (controlBusy) return;
+    setControlsBusy(true);
+    showResult("Asking the node…", false);
+    postJSON(url, body)
       .then(function (res) {
         showResult(res.ok ? res.message : res.error, !res.ok);
         coresTouched = false;
         panels[1].refresh();
+        if (after) after(res);
       })
       .catch(function (err) {
         showResult(err.message, true);
@@ -242,6 +246,86 @@
   el("mining-resume").addEventListener("click", function () {
     control("/api/mining/resume");
   });
+
+  el("payout-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var input = el("payout-input");
+    control("/api/mining/payout", { address: input.value.trim() }, function (res) {
+      if (res.saved) input.value = "";
+      // The rewards panel starts counting for the new address.
+      panels[4].refresh();
+    });
+  });
+
+  // Restart and updates.
+  var serviceBusy = false;
+
+  function setServiceBusy(busy) {
+    serviceBusy = busy;
+    ["node-restart", "updates-run", "updates-on", "updates-off"].forEach(function (id) {
+      el(id).disabled = busy;
+    });
+  }
+
+  function showServiceResult(res) {
+    var box = el("service-result");
+    var msg = res.ok ? res.message : res.error;
+    if (res.command && res.command.length) msg += " (ran: " + res.command.join(" ") + ")";
+    box.textContent = msg;
+    box.hidden = !msg;
+    box.className = res.ok ? "message" : "message error";
+    var out = el("updates-output");
+    out.textContent = res.output || "";
+    out.hidden = !res.output;
+  }
+
+  function serviceAction(url, waiting) {
+    if (serviceBusy) return;
+    setServiceBusy(true);
+    showServiceResult({ ok: true, message: waiting });
+    postJSON(url)
+      .then(function (res) {
+        showServiceResult(res);
+        if (res.updates) renderUpdates(panels[2], res.updates);
+      })
+      .catch(function (err) {
+        showServiceResult({ ok: false, error: err.message });
+      })
+      .then(function () {
+        setServiceBusy(false);
+        refresh();
+      });
+  }
+
+  el("node-restart").addEventListener("click", function () {
+    serviceAction("/api/node/restart", "Restarting the node and waiting for it to answer again…");
+  });
+
+  el("updates-run").addEventListener("click", function () {
+    serviceAction("/api/updates/run", "Updating the node. This can take a few minutes…");
+  });
+
+  el("updates-on").addEventListener("click", function () {
+    serviceAction("/api/updates/on", "Turning daily updates on…");
+  });
+
+  el("updates-off").addEventListener("click", function () {
+    serviceAction("/api/updates/off", "Turning daily updates off…");
+  });
+
+  function renderUpdates(panel, s) {
+    if (!s.available) panel.setState("Not available", "wait");
+    else if (!s.installed) panel.setState("Updater not installed", "wait");
+    else panel.setState("Ready", "ok");
+    panel.setMessage(s.error ? "Restart and updates: " + s.error + "." : "");
+    text("updates-state", s.on === true ? "On" : s.on === false ? "Off" : "–");
+    text("updates-last", s.lastRunTime ? new Date(s.lastRunTime * 1000).toLocaleString() : s.lastRun || (s.installed ? "Never" : "–"));
+    text("updates-service", show(s.service));
+    el("node-restart").hidden = !s.available;
+    el("updates-run").hidden = !s.available;
+    el("updates-on").hidden = !s.installed || s.on !== false;
+    el("updates-off").hidden = !s.installed || s.on !== true;
+  }
 
   function renderNetwork(panel, s) {
     if (s.running) panel.setState("Connected", "ok");
@@ -351,6 +435,7 @@
   var panels = [
     new Panel("node-panel", "/api/node", renderNode),
     new Panel("mining-panel", "/api/mining", renderMining),
+    new Panel("service-panel", "/api/updates", renderUpdates, true),
     new Panel("network-panel", "/api/network", renderNetwork),
     new Panel("rewards-panel", "/api/rewards", renderRewards),
     new Panel("log-panel", "/api/log", renderLog, true),

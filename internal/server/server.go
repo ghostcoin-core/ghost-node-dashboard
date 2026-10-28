@@ -20,6 +20,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ghostcoin-core/ghost-node-dashboard/internal/address"
+	"github.com/ghostcoin-core/ghost-node-dashboard/internal/service"
 	"github.com/ghostcoin-core/ghost-node-dashboard/internal/status"
 	"github.com/ghostcoin-core/ghost-node-dashboard/web"
 )
@@ -45,7 +47,22 @@ type Config struct {
 	AutoUpdate func() *bool
 	// Now is the clock; nil means time.Now.
 	Now func() time.Time
+	// Services finds and drives the node's services; nil means this
+	// computer's (service.FromOS).
+	Services *service.Env
+	// RestartWait bounds how long a restart waits for the node to answer
+	// again; 0 means DefaultRestartWait.
+	RestartWait time.Duration
 }
+
+// DefaultRestartWait is how long a restart waits for the node to come back.
+const DefaultRestartWait = 60 * time.Second
+
+// UpdateTimeout bounds one "Update now" run.
+const UpdateTimeout = 15 * time.Minute
+
+// ServiceTimeout bounds the service commands other than the update itself.
+const ServiceTimeout = 20 * time.Second
 
 type handler struct {
 	key     []byte
@@ -62,6 +79,12 @@ type handler struct {
 	// control serialises the mining controls so two changes do not
 	// interleave their node calls and file writes.
 	control sync.Mutex
+
+	services    service.Env
+	restartWait time.Duration
+	// busy is held while a restart or an update command runs; a second one
+	// is refused rather than queued.
+	busy sync.Mutex
 }
 
 // New returns the dashboard handler.
@@ -81,6 +104,16 @@ func New(cfg Config) http.Handler {
 		rewards: status.NewRewards(status.RewardsEnv{NodeDir: cfg.NodeDir, Now: cfg.Now}),
 		nodeDir: cfg.NodeDir,
 		mux:     http.NewServeMux(),
+
+		restartWait: cfg.RestartWait,
+	}
+	if cfg.Services != nil {
+		h.services = *cfg.Services
+	} else {
+		h.services = service.FromOS(cfg.NodeDir)
+	}
+	if h.restartWait <= 0 {
+		h.restartWait = DefaultRestartWait
 	}
 	if h.nodeEnv.AutoUpdate == nil {
 		h.nodeEnv.AutoUpdate = status.AutoUpdateInstalled
@@ -112,6 +145,12 @@ func New(cfg Config) http.Handler {
 	h.mux.HandleFunc("POST /api/mining/cores", h.setCores)
 	h.mux.HandleFunc("POST /api/mining/pause", h.pauseMining)
 	h.mux.HandleFunc("POST /api/mining/resume", h.resumeMining)
+	h.mux.HandleFunc("POST /api/mining/payout", h.setPayout)
+	h.mux.HandleFunc("POST /api/node/restart", h.restartNode)
+	h.mux.HandleFunc("GET /api/updates", h.updatesPanel)
+	h.mux.HandleFunc("POST /api/updates/run", h.runUpdate)
+	h.mux.HandleFunc("POST /api/updates/on", h.updatesOn)
+	h.mux.HandleFunc("POST /api/updates/off", h.updatesOff)
 	return h
 }
 
@@ -285,6 +324,135 @@ func (h *handler) resumeMining(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), StatusTimeout)
 	defer cancel()
 	writeJSON(w, status.Resume(ctx, h.node, h.mining))
+}
+
+// setPayout takes {"address": "0x…"}: 40 hex characters, with the mixed-case
+// checksum checked when given.
+func (h *handler) setPayout(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxControlBody))
+	var req struct {
+		Address *string `json:"address"`
+	}
+	if err == nil {
+		err = json.Unmarshal(body, &req)
+	}
+	if err != nil || req.Address == nil {
+		badRequest(w, status.PayoutResult{Error: "Enter the payout address: " + address.ErrFormat.Error() + "."})
+		return
+	}
+	addr, err := address.Parse(*req.Address)
+	if err != nil {
+		badRequest(w, status.PayoutResult{Error: "That is not a payout address: " + err.Error() + "."})
+		return
+	}
+	h.control.Lock()
+	defer h.control.Unlock()
+	ctx, cancel := context.WithTimeout(r.Context(), StatusTimeout)
+	defer cancel()
+	writeJSON(w, status.SetPayout(ctx, h.node, h.nodeDir, addr))
+}
+
+// RestartResult is what a restart returns: the command's result and whether
+// the node answered again afterwards.
+type RestartResult struct {
+	service.Result
+	Back          bool    `json:"back"`
+	ClientVersion *string `json:"clientVersion"`
+	BlockNumber   *uint64 `json:"blockNumber"`
+}
+
+// lockService takes the service lock, or answers 409 when a restart or an
+// update is already running.
+func (h *handler) lockService(w http.ResponseWriter) bool {
+	if h.busy.TryLock() {
+		return true
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusConflict)
+	_ = json.NewEncoder(w).Encode(service.Result{Error: "A restart or an update is already running. Wait for it to finish."})
+	return false
+}
+
+// extendWrite lets a long action answer after the server's usual write
+// timeout.
+func extendWrite(w http.ResponseWriter, d time.Duration) {
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(d + 10*time.Second))
+}
+
+func (h *handler) restartNode(w http.ResponseWriter, r *http.Request) {
+	if !h.lockService(w) {
+		return
+	}
+	defer h.busy.Unlock()
+	extendWrite(w, ServiceTimeout+h.restartWait)
+
+	before := status.EndpointStamp(h.nodeEnv.IPCPath)
+	ctx, cancel := context.WithTimeout(r.Context(), ServiceTimeout)
+	res := RestartResult{Result: h.services.Restart(ctx)}
+	cancel()
+	if !res.OK {
+		writeJSON(w, res)
+		return
+	}
+	wait, cancel := context.WithTimeout(r.Context(), h.restartWait)
+	defer cancel()
+	res.ClientVersion, res.BlockNumber, res.Back = status.WaitNodeBack(wait, h.node, h.nodeEnv.IPCPath, before)
+	if res.Back {
+		res.Message = "The node restarted and is answering again."
+		if res.BlockNumber != nil {
+			res.Message += fmt.Sprintf(" Latest block: %d.", *res.BlockNumber)
+		}
+	} else {
+		res.Message = fmt.Sprintf("Restart sent, but the node has not answered in %s. The Your node panel shows it when it is back.", h.restartWait)
+	}
+	writeJSON(w, res)
+}
+
+func (h *handler) updatesPanel(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), ServiceTimeout)
+	defer cancel()
+	writeJSON(w, h.services.Updates(ctx))
+}
+
+// UpdatesResult is what turning updates on or off and "Update now" return:
+// the command's result and the update state read afterwards.
+type UpdatesResult struct {
+	service.Result
+	Updates service.UpdateState `json:"updates"`
+}
+
+func (h *handler) runUpdate(w http.ResponseWriter, r *http.Request) {
+	if !h.lockService(w) {
+		return
+	}
+	defer h.busy.Unlock()
+	extendWrite(w, UpdateTimeout)
+	ctx, cancel := context.WithTimeout(r.Context(), UpdateTimeout)
+	res := h.services.RunUpdate(ctx)
+	cancel()
+	ctx, cancel = context.WithTimeout(r.Context(), ServiceTimeout)
+	defer cancel()
+	writeJSON(w, UpdatesResult{Result: res, Updates: h.services.Updates(ctx)})
+}
+
+func (h *handler) updatesOn(w http.ResponseWriter, r *http.Request)  { h.setUpdates(w, r, true) }
+func (h *handler) updatesOff(w http.ResponseWriter, r *http.Request) { h.setUpdates(w, r, false) }
+
+func (h *handler) setUpdates(w http.ResponseWriter, r *http.Request, on bool) {
+	if !h.lockService(w) {
+		return
+	}
+	defer h.busy.Unlock()
+	ctx, cancel := context.WithTimeout(r.Context(), ServiceTimeout)
+	defer cancel()
+	res, st := h.services.SetUpdates(ctx, on)
+	writeJSON(w, UpdatesResult{Result: res, Updates: st})
+}
+
+func badRequest(w http.ResponseWriter, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusBadRequest)
+	_ = json.NewEncoder(w).Encode(v)
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
