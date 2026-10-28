@@ -1,16 +1,57 @@
 "use strict";
 
-(function () {
+// GhostDash is the shared core of the dashboard page. index.html loads this
+// file first, then one file per screen from /static/screens/, all with defer,
+// so every screen file can call GhostDash at once and the page is built when
+// the document has been read.
+//
+// The contract (GhostDash is the only global this file defines):
+//
+//   GhostDash.REFRESH_MS             5000: how often polled data refreshes.
+//   GhostDash.getJSON(url)           GET, same-origin, cache "no-store".
+//                                    Resolves to the decoded JSON; rejects
+//                                    with an Error whose message can be shown.
+//   GhostDash.postJSON(url, body)    POST a JSON body, same-origin, so the
+//                                    browser sends the Origin header the
+//                                    server checks. Resolves to the JSON answer.
+//   GhostDash.poll(url, onData, onError)
+//                                    Fetch url now and every REFRESH_MS.
+//                                    Callers of the same url share one request.
+//   GhostDash.refresh()              Fetch every polled url now.
+//   GhostDash.format                 num, rate (hash rate), duration, percent,
+//                                    coins, ago ("N s ago"), shortAddress and
+//                                    show (a dash for null, else format(v)).
+//   GhostDash.h(tag, attrs, kids)    Build an element. attrs: "class", "text",
+//                                    properties or attributes; kids: nodes or
+//                                    strings, added as text, never as HTML.
+//   GhostDash.clear(node)            Remove every child of node.
+//   GhostDash.card({id, title})      A white card with a title, a state pill,
+//                                    a message line and "Updated N s ago".
+//                                    Returns {root, body, setState(label, kind),
+//                                    setMessage(text), field(label, id, opts),
+//                                    markUpdated()}; kind is ok, wait or bad.
+//   GhostDash.panel(card, url, render, local)
+//                                    Poll url into card: shows "Node not
+//                                    running" or the error on the card, then
+//                                    calls render(card, data). A local panel
+//                                    reads this computer, not the node.
+//   GhostDash.copyButton(id)         A Copy button that copies its data-value.
+//   GhostDash.screen(name, {title, sentence, mount})
+//                                    Register the screen for the route
+//                                    #/<name>. mount(root, screen) builds all
+//                                    of the screen's DOM inside root, once;
+//                                    screen.setSentence(text) changes the
+//                                    sentence under the page title.
+//
+// The core also owns the sidebar: the active nav item, the Rewards badge
+// (wonTotal from /api/rewards) and the node card (from /api/node).
+var GhostDash = (function () {
   var REFRESH_MS = 5000;
+  var NOT_SIGNED_IN = "This browser is not signed in. Open the dashboard from the link the installer printed.";
   var NOT_RUNNING = "Node not running. Start it and this panel will update by itself.";
+  var ROUTES = ["overview", "rewards", "network", "settings"];
 
-  function el(id) {
-    return document.getElementById(id);
-  }
-
-  function text(id, value) {
-    el(id).textContent = value;
-  }
+  // Formatting.
 
   function show(v, format) {
     if (v === null || v === undefined) return "–";
@@ -53,144 +94,26 @@
     return a.coins + " GHOST";
   }
 
-  function clear(node) {
-    while (node.firstChild) node.removeChild(node.firstChild);
+  function ago(secs) {
+    secs = Math.max(0, Math.floor(secs));
+    if (secs < 60) return secs + " s ago";
+    if (secs < 3600) return Math.floor(secs / 60) + " min ago";
+    return Math.floor(secs / 3600) + " h ago";
   }
 
-  // A panel is one card fed by one API endpoint. A local panel reads this
-  // computer rather than the node and sets its own state.
-  function Panel(id, url, render, local) {
-    this.root = el(id);
-    this.url = url;
-    this.render = render;
-    this.local = !!local;
+  function shortAddress(a) {
+    if (!a || a.length <= 14) return a || "";
+    return a.slice(0, 6) + "…" + a.slice(-4);
   }
 
-  Panel.prototype.part = function (name) {
-    return this.root.querySelector("[data-" + name + "]");
-  };
+  // Requests.
 
-  Panel.prototype.setState = function (label, kind) {
-    var s = this.part("state");
-    s.textContent = label;
-    s.className = "pill pill-" + kind;
-  };
-
-  Panel.prototype.setMessage = function (msg) {
-    var m = this.part("message");
-    m.textContent = msg || "";
-    m.hidden = !msg;
-  };
-
-  Panel.prototype.refresh = function () {
-    var panel = this;
-    fetch(panel.url, { credentials: "same-origin", cache: "no-store" })
-      .then(function (r) {
-        if (r.status === 401) {
-          throw new Error("This browser is not signed in. Open the dashboard from the link the installer printed.");
-        }
-        if (!r.ok) throw new Error("The dashboard answered " + r.status + ".");
-        return r.json();
-      })
-      .then(function (data) {
-        if (panel.local || data.running) {
-          panel.setMessage("");
-        } else {
-          panel.setState("Node not running", "bad");
-          panel.setMessage(data.error === "node not running" ? NOT_RUNNING : data.error || NOT_RUNNING);
-        }
-        panel.render(panel, data);
-        panel.part("updated").textContent = new Date().toLocaleTimeString();
-      })
-      .catch(function (err) {
-        panel.setState("No answer", "bad");
-        panel.setMessage(err.message);
-      });
-  };
-
-  function renderNode(panel, s) {
-    var progress = el("node-progress");
-    progress.hidden = true;
-    if (s.running) {
-      if (s.syncing === true) {
-        panel.setState("Running, syncing", "wait");
-      } else {
-        panel.setState("Running", "ok");
-      }
-    }
-    if (s.syncing === true) {
-      var pct = s.highestBlock ? Math.min(100, (s.currentBlock / s.highestBlock) * 100) : 0;
-      text("node-sync", "Syncing, " + pct.toFixed(1) + " %");
-      progress.hidden = false;
-      progress.value = pct;
-    } else {
-      text("node-sync", show(s.syncing, function () { return "In sync"; }));
-    }
-    if (s.currentBlock !== null && s.currentBlock !== undefined && s.syncing === true) {
-      text("node-blocks", num(s.currentBlock) + " of " + show(s.highestBlock, num));
-    } else {
-      text("node-blocks", show(s.currentBlock, num));
-    }
-    text("node-peers", show(s.peers));
-    text("node-clients", show(s.peerClients, function (list) {
-      if (!list.length) return "none";
-      return list.map(function (c) { return c.count > 1 ? c.name + " ×" + c.count : c.name; }).join(", ");
-    }));
-    text("node-uptime", show(s.uptimeSeconds, function (secs) {
-      return s.uptimeFrom === "first answer" ? "at least " + duration(secs) : duration(secs);
-    }));
-    text("node-network", show(s.networkName));
-    text("node-autoupdate", show(s.autoUpdate, function (on) { return on ? "On" : "Off"; }));
-    text("node-version", show(s.clientVersion));
-  }
-
-  function renderMining(panel, s) {
-    if (s.running) {
-      if (s.mining === true) panel.setState("Mining", "ok");
-      else if (s.mining === false) panel.setState("Paused", "wait");
-      else panel.setState("Running", "wait");
-    }
-    text("mining-cores", s.coresUsed + " of " + s.logicalCores);
-    el("mining-hashrate-row").hidden = !s.hashRate;
-    text("mining-hashrate", show(s.hashRate, rate));
-    text("mining-share", show(s.networkShare, percent));
-    text("mining-next", show(s.expectedBlockSeconds, function (secs) { return "about " + duration(secs); }));
-    text("mining-payout", show(s.payoutAddress));
-    var copy = el("mining-copy");
-    copy.hidden = !s.payoutAddress;
-    copy.dataset.value = s.payoutAddress || "";
-    renderControls(s);
-    text("mining-note", "Estimates assume a target block time of " + s.targetBlockSeconds +
-      " s and change with the network.");
-  }
-
-  // The slider follows the saved core count until the person moves it.
-  var coresTouched = false;
-  var controlBusy = false;
-
-  function renderControls(s) {
-    var input = el("cores-input");
-    input.max = String(s.logicalCores);
-    if (!coresTouched) {
-      input.value = String(s.coresUsed);
-      text("cores-value", s.coresUsed + " of " + s.logicalCores);
-    }
-    el("mining-pause").hidden = s.paused;
-    el("mining-resume").hidden = !s.paused;
-  }
-
-  function setControlsBusy(busy) {
-    controlBusy = busy;
-    ["cores-apply", "mining-pause", "mining-resume", "payout-save"].forEach(function (id) {
-      el(id).disabled = busy;
+  function getJSON(url) {
+    return fetch(url, { credentials: "same-origin", cache: "no-store" }).then(function (r) {
+      if (r.status === 401) throw new Error(NOT_SIGNED_IN);
+      if (!r.ok) throw new Error("The dashboard answered " + r.status + ".");
+      return r.json();
     });
-  }
-
-  function showResult(msg, failed) {
-    var box = el("control-result");
-    box.textContent = msg;
-    box.hidden = !msg;
-    box.className = failed ? "message error" : "message";
   }
 
   function postJSON(url, body) {
@@ -201,250 +124,262 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body || {}),
     }).then(function (r) {
-      if (r.status === 401) {
-        throw new Error("This browser is not signed in. Open the dashboard from the link the installer printed.");
-      }
+      if (r.status === 401) throw new Error(NOT_SIGNED_IN);
       return r.json().catch(function () {
         throw new Error("The dashboard answered " + r.status + ".");
       });
     });
   }
 
-  function control(url, body, after) {
-    if (controlBusy) return;
-    setControlsBusy(true);
-    showResult("Asking the node…", false);
-    postJSON(url, body)
-      .then(function (res) {
-        showResult(res.ok ? res.message : res.error, !res.ok);
-        coresTouched = false;
-        panels[1].refresh();
-        if (after) after(res);
+  // Polling. Each url is fetched once per round and handed to every caller.
+
+  var polls = {};
+  var pollOrder = [];
+
+  function poll(url, onData, onError) {
+    if (!polls[url]) {
+      polls[url] = [];
+      pollOrder.push(url);
+    }
+    polls[url].push({ data: onData, error: onError });
+    if (started) fetchOne(url);
+  }
+
+  function fetchOne(url) {
+    getJSON(url)
+      .then(function (data) {
+        polls[url].forEach(function (s) { s.data(data); });
       })
       .catch(function (err) {
-        showResult(err.message, true);
-      })
-      .then(function () {
-        setControlsBusy(false);
+        polls[url].forEach(function (s) { if (s.error) s.error(err); });
       });
   }
-
-  el("cores-input").addEventListener("input", function () {
-    coresTouched = true;
-    text("cores-value", this.value + " of " + this.max);
-  });
-
-  el("cores-form").addEventListener("submit", function (e) {
-    e.preventDefault();
-    control("/api/mining/cores", { cores: parseInt(el("cores-input").value, 10) });
-  });
-
-  el("mining-pause").addEventListener("click", function () {
-    control("/api/mining/pause");
-  });
-
-  el("mining-resume").addEventListener("click", function () {
-    control("/api/mining/resume");
-  });
-
-  el("payout-form").addEventListener("submit", function (e) {
-    e.preventDefault();
-    var input = el("payout-input");
-    control("/api/mining/payout", { address: input.value.trim() }, function (res) {
-      if (res.saved) input.value = "";
-      // The rewards panel starts counting for the new address.
-      panels[4].refresh();
-    });
-  });
-
-  // Restart and updates.
-  var serviceBusy = false;
-
-  function setServiceBusy(busy) {
-    serviceBusy = busy;
-    ["node-restart", "updates-run", "updates-on", "updates-off"].forEach(function (id) {
-      el(id).disabled = busy;
-    });
-  }
-
-  function showServiceResult(res) {
-    var box = el("service-result");
-    var msg = res.ok ? res.message : res.error;
-    if (res.command && res.command.length) msg += " (ran: " + res.command.join(" ") + ")";
-    box.textContent = msg;
-    box.hidden = !msg;
-    box.className = res.ok ? "message" : "message error";
-    var out = el("updates-output");
-    out.textContent = res.output || "";
-    out.hidden = !res.output;
-  }
-
-  function serviceAction(url, waiting) {
-    if (serviceBusy) return;
-    setServiceBusy(true);
-    showServiceResult({ ok: true, message: waiting });
-    postJSON(url)
-      .then(function (res) {
-        showServiceResult(res);
-        if (res.updates) renderUpdates(panels[2], res.updates);
-      })
-      .catch(function (err) {
-        showServiceResult({ ok: false, error: err.message });
-      })
-      .then(function () {
-        setServiceBusy(false);
-        refresh();
-      });
-  }
-
-  el("node-restart").addEventListener("click", function () {
-    serviceAction("/api/node/restart", "Restarting the node and waiting for it to answer again…");
-  });
-
-  el("updates-run").addEventListener("click", function () {
-    serviceAction("/api/updates/run", "Updating the node. This can take a few minutes…");
-  });
-
-  el("updates-on").addEventListener("click", function () {
-    serviceAction("/api/updates/on", "Turning daily updates on…");
-  });
-
-  el("updates-off").addEventListener("click", function () {
-    serviceAction("/api/updates/off", "Turning daily updates off…");
-  });
-
-  function renderUpdates(panel, s) {
-    if (!s.available) panel.setState("Not available", "wait");
-    else if (!s.installed) panel.setState("Updater not installed", "wait");
-    else panel.setState("Ready", "ok");
-    panel.setMessage(s.error ? "Restart and updates: " + s.error + "." : "");
-    text("updates-state", s.on === true ? "On" : s.on === false ? "Off" : "–");
-    text("updates-last", s.lastRunTime ? new Date(s.lastRunTime * 1000).toLocaleString() : s.lastRun || (s.installed ? "Never" : "–"));
-    text("updates-service", show(s.service));
-    el("node-restart").hidden = !s.available;
-    el("updates-run").hidden = !s.available;
-    el("updates-on").hidden = !s.installed || s.on !== false;
-    el("updates-off").hidden = !s.installed || s.on !== true;
-  }
-
-  function renderNetwork(panel, s) {
-    if (s.running) panel.setState("Connected", "ok");
-    text("network-height", show(s.height, num));
-    text("network-blocktime", show(s.averageBlockSeconds, function (secs) {
-      return secs.toFixed(1) + " s (last " + s.averageOverBlocks + " blocks)";
-    }));
-    text("network-difficulty", show(s.difficulty, num));
-    text("network-hashrate", show(s.networkHashRate, rate));
-    text("network-note", "The network hash rate is an estimate: difficulty ÷ the " +
-      s.targetBlockSeconds + " s target block time. Your own blocks are in violet.");
-
-    var body = el("network-blocks");
-    while (body.firstChild) body.removeChild(body.firstChild);
-    (s.blocks || []).forEach(function (b) {
-      var row = document.createElement("tr");
-      if (b.own) row.className = "own";
-      [num(b.number), new Date(b.time * 1000).toLocaleTimeString(), b.minerShort + (b.own ? " (you)" : "")]
-        .forEach(function (v, i) {
-          var cell = document.createElement("td");
-          cell.textContent = v;
-          if (i !== 1) cell.className = "mono";
-          if (i === 2) cell.title = b.miner;
-          row.appendChild(cell);
-        });
-      body.appendChild(row);
-    });
-  }
-
-  function renderRewards(panel, s) {
-    if (s.running) {
-      panel.setState(s.indexing ? "Reading blocks" : "Up to date", s.indexing ? "wait" : "ok");
-    }
-    text("rewards-today-count", show(s.wonToday, num));
-    text("rewards-today", coins(s.rewardToday));
-    text("rewards-total-count", show(s.wonTotal, num));
-    text("rewards-total", coins(s.rewardTotal));
-    text("rewards-balance", show(s.balance, coins));
-    text("rewards-lost", show(s.lostRaces, num));
-    text("rewards-lost-note", "A lost race: " + s.lostRacesNote);
-
-    var body = el("rewards-blocks");
-    clear(body);
-    (s.blocks || []).forEach(function (b) {
-      var row = document.createElement("tr");
-      [num(b.number), new Date(b.time * 1000).toLocaleString(), b.reward ? coins(b.reward) : "unknown"]
-        .forEach(function (v, i) {
-          var cell = document.createElement("td");
-          cell.textContent = v;
-          if (i !== 1) cell.className = "mono";
-          if (i === 0) cell.title = b.hash;
-          row.appendChild(cell);
-        });
-      body.appendChild(row);
-    });
-
-    var notes = [];
-    if (!s.payoutAddress) notes.push("The node has no payout address, so it cannot win blocks.");
-    else if (!s.blocks || !s.blocks.length) notes.push("No blocks won yet.");
-    if (s.wonTotal > (s.blocks || []).length) notes.push("Showing the latest " + s.blocks.length + " blocks won.");
-    if (s.indexing) {
-      notes.push("Reading the chain for your blocks: " +
-        (s.indexing.readTo === null ? "starting" : "block " + num(s.indexing.readTo)) +
-        " of " + num(s.indexing.height) + ".");
-    }
-    if (s.unknownRewards) {
-      notes.push(s.unknownRewards + " block(s) won show no reward: the node no longer keeps the balances from then, so they are left out of the sums.");
-    }
-    notes.push("Each reward is your balance change across the block. Today is in this computer's time.");
-    if (s.indexError) notes.push("Index problem: " + s.indexError);
-    text("rewards-note", notes.join(" "));
-  }
-
-  function renderLog(panel, s) {
-    if (s.available) panel.setState("Read only", "ok");
-    else panel.setState("No log", "wait");
-    text("log-note", s.available
-      ? "The last " + s.lines.length + " lines of " + s.path + ", newest first."
-      : s.message + " (" + s.path + ")");
-    var list = el("log-lines");
-    clear(list);
-    s.lines.forEach(function (line) {
-      var item = document.createElement("li");
-      var code = document.createElement("code");
-      code.textContent = line.text;
-      item.appendChild(code);
-      if (line.meaning) {
-        var meaning = document.createElement("span");
-        meaning.className = "meaning";
-        meaning.textContent = line.meaning;
-        item.appendChild(meaning);
-      }
-      list.appendChild(item);
-    });
-  }
-
-  el("mining-copy").addEventListener("click", function () {
-    var button = this;
-    var value = button.dataset.value;
-    if (!value || !navigator.clipboard) return;
-    navigator.clipboard.writeText(value).then(function () {
-      button.textContent = "Copied";
-      setTimeout(function () { button.textContent = "Copy"; }, 1500);
-    });
-  });
-
-  var panels = [
-    new Panel("node-panel", "/api/node", renderNode),
-    new Panel("mining-panel", "/api/mining", renderMining),
-    new Panel("service-panel", "/api/updates", renderUpdates, true),
-    new Panel("network-panel", "/api/network", renderNetwork),
-    new Panel("rewards-panel", "/api/rewards", renderRewards),
-    new Panel("log-panel", "/api/log", renderLog, true),
-  ];
 
   function refresh() {
-    panels.forEach(function (p) { p.refresh(); });
+    pollOrder.forEach(fetchOne);
   }
 
-  refresh();
-  setInterval(refresh, REFRESH_MS);
+  // DOM building.
+
+  function h(tag, attrs, kids) {
+    var node = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (key) {
+      var v = attrs[key];
+      if (v === undefined || v === null) return;
+      if (key === "class") node.className = v;
+      else if (key === "text") node.textContent = v;
+      else if (key.indexOf("-") >= 0 || !(key in node)) node.setAttribute(key, v);
+      else node[key] = v;
+    });
+    (kids || []).forEach(function (kid) {
+      if (kid === null || kid === undefined) return;
+      node.appendChild(typeof kid === "string" ? document.createTextNode(kid) : kid);
+    });
+    return node;
+  }
+
+  function clear(node) {
+    while (node.firstChild) node.removeChild(node.firstChild);
+  }
+
+  // Cards.
+
+  function Card(opts) {
+    var titleId = opts.id + "-title";
+    this.state = h("span", { class: "pill pill-wait", text: "Checking…" });
+    this.message = h("p", { class: "message", hidden: true });
+    this.stamp = h("span", { class: "mono", text: "never" });
+    this.body = h("div", { class: "card-body" });
+    this.root = h("section", { class: "card", id: opts.id, "aria-labelledby": titleId }, [
+      h("div", { class: "card-head" }, [h("h2", { id: titleId, text: opts.title }), this.state]),
+      this.message,
+      this.body,
+      h("p", { class: "updated" }, ["Updated ", this.stamp]),
+    ]);
+  }
+
+  Card.prototype.setState = function (label, kind) {
+    this.state.textContent = label;
+    this.state.className = "pill pill-" + kind;
+  };
+
+  Card.prototype.setMessage = function (msg) {
+    this.message.textContent = msg || "";
+    this.message.hidden = !msg;
+  };
+
+  Card.prototype.markUpdated = function () {
+    this.stamp.dataset.at = String(Date.now());
+    this.stamp.textContent = ago(0);
+  };
+
+  // field adds one label and value to the card's list of fields (made on
+  // first use) and returns the value element.
+  Card.prototype.field = function (label, id, opts) {
+    opts = opts || {};
+    if (!this.fields) {
+      this.fields = h("dl", { class: "fields" });
+      this.body.appendChild(this.fields);
+    }
+    var dd = h("dd", { id: id, class: opts.mono ? "mono" : "", text: "–" });
+    this.fields.appendChild(h("div", { id: opts.rowId, class: opts.wide ? "wide" : "" }, [h("dt", { text: label }), dd]));
+    return dd;
+  };
+
+  function card(opts) {
+    return new Card(opts);
+  }
+
+  function panel(c, url, render, local) {
+    poll(url, function (data) {
+      if (local || data.running) {
+        c.setMessage("");
+      } else {
+        c.setState("Node not running", "bad");
+        c.setMessage(data.error === "node not running" ? NOT_RUNNING : data.error || NOT_RUNNING);
+      }
+      render(c, data);
+      c.markUpdated();
+    }, function (err) {
+      c.setState("No answer", "bad");
+      c.setMessage(err.message);
+    });
+  }
+
+  function tickUpdated() {
+    var now = Date.now();
+    Array.prototype.forEach.call(document.querySelectorAll(".updated [data-at]"), function (s) {
+      s.textContent = ago((now - Number(s.dataset.at)) / 1000);
+    });
+  }
+
+  function copyButton(id) {
+    var button = h("button", { type: "button", id: id, class: "copy", hidden: true, text: "Copy" });
+    button.addEventListener("click", function () {
+      var value = button.dataset.value;
+      if (!value || !navigator.clipboard) return;
+      navigator.clipboard.writeText(value).then(function () {
+        button.textContent = "Copied";
+        setTimeout(function () { button.textContent = "Copy"; }, 1500);
+      });
+    });
+    return button;
+  }
+
+  // Screens and routes.
+
+  var screens = {};
+  var current = null;
+  var started = false;
+  var pageTitle, pageSentence;
+
+  function screen(name, def) {
+    screens[name] = { name: name, def: def, sentence: def.sentence || "", root: null };
+  }
+
+  function routeName() {
+    var m = /^#\/([a-z]+)$/.exec(location.hash);
+    return m && ROUTES.indexOf(m[1]) >= 0 && screens[m[1]] ? m[1] : "overview";
+  }
+
+  function showRoute(moveFocus) {
+    var name = routeName();
+    var s = screens[name];
+    if (!s) return;
+    current = name;
+    Object.keys(screens).forEach(function (n) {
+      if (screens[n].root) screens[n].root.hidden = n !== name;
+    });
+    pageTitle.textContent = s.def.title;
+    pageSentence.textContent = s.sentence;
+    document.title = s.def.title + " · Ghost Node Dashboard";
+    Array.prototype.forEach.call(document.querySelectorAll(".nav a[data-route]"), function (a) {
+      if (a.dataset.route === name) a.setAttribute("aria-current", "page");
+      else a.removeAttribute("aria-current");
+    });
+    if (moveFocus) pageTitle.focus();
+  }
+
+  function mountScreens(main) {
+    pageTitle = h("h1", { id: "page-title", tabIndex: -1 });
+    pageSentence = h("p", { id: "page-sentence", class: "sentence" });
+    main.appendChild(h("header", { class: "page-head" }, [pageTitle, pageSentence]));
+    ROUTES.forEach(function (name) {
+      var s = screens[name];
+      if (!s) return;
+      s.root = h("div", { class: "screen", id: "screen-" + name, hidden: true });
+      main.appendChild(s.root);
+      s.def.mount(s.root, {
+        setSentence: function (text) {
+          s.sentence = text;
+          if (current === name) pageSentence.textContent = text;
+        },
+      });
+    });
+  }
+
+  // Sidebar.
+
+  function text(id, value) {
+    document.getElementById(id).textContent = value;
+  }
+
+  function watchSidebar() {
+    var dot = document.getElementById("side-dot");
+    poll("/api/node", function (s) {
+      text("side-state", s.running ? "Node running" : "Node stopped");
+      dot.className = s.running ? "dot dot-on" : "dot";
+      var peers = s.peers === null || s.peers === undefined ? "–" : num(s.peers);
+      text("side-network", show(s.networkName, String) + " · " + peers + (s.peers === 1 ? " peer" : " peers"));
+      text("side-version", show(s.clientVersion));
+      text("side-chain", "Chain ID " + show(s.chainId));
+    }, function () {
+      text("side-state", "No answer");
+      dot.className = "dot";
+    });
+    var badge = document.getElementById("nav-rewards-badge");
+    poll("/api/rewards", function (s) {
+      var won = typeof s.wonTotal === "number" ? s.wonTotal : null;
+      badge.hidden = won === null;
+      badge.textContent = won === null ? "" : num(won);
+      badge.setAttribute("aria-label", (won === null ? "" : num(won)) + " blocks won");
+    });
+  }
+
+  function start() {
+    mountScreens(document.getElementById("main"));
+    watchSidebar();
+    showRoute(false);
+    window.addEventListener("hashchange", function () { showRoute(true); });
+    started = true;
+    refresh();
+    setInterval(refresh, REFRESH_MS);
+    setInterval(tickUpdated, 1000);
+  }
+
+  document.addEventListener("DOMContentLoaded", start);
+
+  return {
+    REFRESH_MS: REFRESH_MS,
+    getJSON: getJSON,
+    postJSON: postJSON,
+    poll: poll,
+    refresh: refresh,
+    format: {
+      show: show,
+      num: num,
+      duration: duration,
+      rate: rate,
+      percent: percent,
+      coins: coins,
+      ago: ago,
+      shortAddress: shortAddress,
+    },
+    h: h,
+    clear: clear,
+    card: card,
+    panel: panel,
+    copyButton: copyButton,
+    screen: screen,
+  };
 })();

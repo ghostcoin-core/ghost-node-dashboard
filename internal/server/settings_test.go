@@ -377,16 +377,15 @@ func TestServiceControlsRefused(t *testing.T) {
 
 func TestPageHasSettings(t *testing.T) {
 	h := newHandler(t, nil)
-	page := do(h, http.MethodGet, "/", goodHost, withSession).Body.String()
-	for _, want := range []string{`id="payout-input"`, `id="node-restart"`, `id="updates-run"`, `id="updates-on"`, `id="updates-off"`, `id="updates-output"`} {
-		if !strings.Contains(page, want) {
-			t.Errorf("page lacks %q", want)
+	js := screenJS(t, h)
+	for _, id := range []string{"payout-input", "node-restart", "updates-run", "updates-on", "updates-off", "updates-output"} {
+		if !strings.Contains(js, `"`+id+`"`) {
+			t.Errorf("screen files lack the element %q", id)
 		}
 	}
-	js := do(h, http.MethodGet, "/static/app.js", goodHost, withSession).Body.String()
 	for _, api := range []string{"/api/mining/payout", "/api/node/restart", "/api/updates", "/api/updates/run", "/api/updates/on", "/api/updates/off"} {
 		if !strings.Contains(js, `"`+api+`"`) {
-			t.Errorf("app.js does not use %s", api)
+			t.Errorf("screen files do not use %s", api)
 		}
 	}
 }

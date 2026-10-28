@@ -7,164 +7,55 @@
 <title>Ghost Node Dashboard</title>
 <link rel="stylesheet" href="/static/style.css">
 <script src="/static/app.js" defer></script>
+<script src="/static/screens/overview.js" defer></script>
+<script src="/static/screens/rewards.js" defer></script>
+<script src="/static/screens/network.js" defer></script>
+<script src="/static/screens/settings.js" defer></script>
 </head>
 <body>
-<header class="top">
-  <svg class="logo" viewBox="0 0 100 100" width="36" height="36" role="img" aria-label="Ghost">
-    <g fill="#0E0D1A">
-      <rect x="0" y="0" width="26" height="26"/>
-      <rect x="37" y="0" width="26" height="26"/>
-      <rect x="74" y="0" width="26" height="26"/>
-      <rect x="0" y="37" width="26" height="26"/>
-      <rect x="74" y="37" width="26" height="26"/>
-      <rect x="0" y="74" width="26" height="26"/>
-      <rect x="37" y="74" width="26" height="26"/>
-      <rect x="74" y="74" width="26" height="26"/>
-    </g>
-    <path fill="#6B4CFF" d="M37 50a13 13 0 0 1 26 0v13l-6.5-5.2-6.5 5.2-6.5-5.2-6.5 5.2z"/>
-  </svg>
-  <h1>Ghost Node</h1>
-</header>
-<main>
-  <section class="card" id="node-panel" aria-labelledby="node-title">
-    <div class="card-head">
-      <h2 id="node-title">Your node</h2>
-      <span class="pill pill-wait" data-state>Checking…</span>
-    </div>
-    <p class="message" data-message hidden></p>
-    <dl class="fields">
-      <div><dt>Sync</dt><dd id="node-sync">–</dd></div>
-      <div><dt>Block</dt><dd id="node-blocks" class="mono">–</dd></div>
-      <div><dt>Peers</dt><dd id="node-peers" class="mono">–</dd></div>
-      <div><dt>Up for</dt><dd id="node-uptime">–</dd></div>
-      <div><dt>Network</dt><dd id="node-network">–</dd></div>
-      <div><dt>Automatic updates</dt><dd id="node-autoupdate">–</dd></div>
-      <div class="wide"><dt>Peer clients</dt><dd id="node-clients" class="mono">–</dd></div>
-      <div class="wide"><dt>Client version</dt><dd id="node-version" class="mono">–</dd></div>
-    </dl>
-    <progress id="node-progress" max="100" value="0" hidden></progress>
-    <p class="updated">Updated <span data-updated>never</span></p>
+<div class="shell">
+<aside class="sidebar">
+  <a class="brand" href="#/overview">
+    <svg class="logo" viewBox="0 0 100 100" width="36" height="36" role="img" aria-label="Ghost">
+      <g fill="#0E0D1A">
+        <rect x="0" y="0" width="26" height="26"/>
+        <rect x="37" y="0" width="26" height="26"/>
+        <rect x="74" y="0" width="26" height="26"/>
+        <rect x="0" y="37" width="26" height="26"/>
+        <rect x="74" y="37" width="26" height="26"/>
+        <rect x="0" y="74" width="26" height="26"/>
+        <rect x="37" y="74" width="26" height="26"/>
+        <rect x="74" y="74" width="26" height="26"/>
+      </g>
+      <path fill="#6B4CFF" d="M37 50a13 13 0 0 1 26 0v13l-6.5-5.2-6.5 5.2-6.5-5.2-6.5 5.2z"/>
+    </svg>
+    <span class="brand-name">ghost</span>
+    <span class="brand-node">node</span>
+  </a>
+  <nav class="nav" aria-label="Screens">
+    <ul>
+      <li><a href="#/overview" data-route="overview">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Overview</span></a></li>
+      <li><a href="#/rewards" data-route="rewards">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9 10.5h4.5a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3H15"/></svg>
+        <span>Rewards</span><span class="badge mono" id="nav-rewards-badge" hidden></span></a></li>
+      <li><a href="#/network" data-route="network">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M11 7 6 17M13 7l5 10M7 19h10"/></svg>
+        <span>Network</span></a></li>
+      <li><a href="#/settings" data-route="settings">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+        <span>Settings</span></a></li>
+    </ul>
+  </nav>
+  <section class="node-card" aria-label="Node">
+    <p class="node-state"><span class="dot" id="side-dot"></span><span id="side-state">Checking…</span></p>
+    <p class="node-line" id="side-network">–</p>
+    <p class="node-line mono" id="side-version">–</p>
+    <p class="node-line mono" id="side-chain">–</p>
   </section>
-
-  <section class="card" id="mining-panel" aria-labelledby="mining-title">
-    <div class="card-head">
-      <h2 id="mining-title">Mining</h2>
-      <span class="pill pill-wait" data-state>Checking…</span>
-    </div>
-    <p class="message" data-message hidden></p>
-    <dl class="fields">
-      <div><dt>Cores used</dt><dd id="mining-cores" class="mono">–</dd></div>
-      <div id="mining-hashrate-row" hidden><dt>Hash rate</dt><dd id="mining-hashrate" class="mono">–</dd></div>
-      <div><dt>Share of the network (estimate)</dt><dd id="mining-share" class="mono">–</dd></div>
-      <div><dt>Next block in (estimate)</dt><dd id="mining-next">–</dd></div>
-      <div class="wide"><dt>Payout address</dt>
-        <dd class="copy-row"><span id="mining-payout" class="mono">–</span>
-          <button type="button" id="mining-copy" class="copy" hidden>Copy</button></dd></div>
-    </dl>
-    <p class="note" id="mining-note"></p>
-    <h3>Controls</h3>
-    <form class="controls" id="cores-form">
-      <label for="cores-input">Cores to mine on: <span id="cores-value" class="mono">–</span></label>
-      <div class="control-row">
-        <input type="range" id="cores-input" min="1" max="1" step="1" value="1">
-        <button type="submit" id="cores-apply" class="action">Apply</button>
-      </div>
-    </form>
-    <div class="control-row">
-      <button type="button" id="mining-pause" class="action" hidden>Pause mining</button>
-      <button type="button" id="mining-resume" class="action" hidden>Resume mining</button>
-    </div>
-    <form class="controls" id="payout-form">
-      <label for="payout-input">Payout address (where rewards go)</label>
-      <div class="control-row">
-        <input type="text" id="payout-input" class="mono" maxlength="42" spellcheck="false" autocomplete="off"
-          placeholder="0x followed by 40 hex characters" pattern="0x[0-9a-fA-F]{40}">
-        <button type="submit" id="payout-save" class="action">Save</button>
-      </div>
-    </form>
-    <p class="message" id="control-result" role="status" hidden></p>
-    <p class="note">A new payout address applies at once and is saved in the node's <code>config.toml</code>, so restarts keep it. Only the address is needed: never enter a private key or recovery words here.</p>
-    <p class="note">The core count is saved in the node folder and applies at the next node restart: the node cannot change it while running. Restarts and updates keep it. While mining is paused the node keeps syncing. For now a node restart resumes mining, until the node installer learns to read the <code>mining-paused</code> file.</p>
-    <p class="updated">Updated <span data-updated>never</span></p>
-  </section>
-
-  <section class="card" id="service-panel" aria-labelledby="service-title">
-    <div class="card-head">
-      <h2 id="service-title">Restart and updates</h2>
-      <span class="pill pill-wait" data-state>Checking…</span>
-    </div>
-    <p class="message" data-message hidden></p>
-    <dl class="fields">
-      <div><dt>Daily updates</dt><dd id="updates-state">–</dd></div>
-      <div><dt>Last update run</dt><dd id="updates-last">–</dd></div>
-      <div class="wide"><dt>Update service</dt><dd id="updates-service" class="mono">–</dd></div>
-    </dl>
-    <div class="control-row">
-      <button type="button" id="node-restart" class="action">Restart node</button>
-      <button type="button" id="updates-run" class="action">Update now</button>
-      <button type="button" id="updates-on" class="action" hidden>Turn daily updates on</button>
-      <button type="button" id="updates-off" class="action" hidden>Turn daily updates off</button>
-    </div>
-    <p class="message" id="service-result" role="status" hidden></p>
-    <pre class="output" id="updates-output" hidden></pre>
-    <p class="updated">Updated <span data-updated>never</span></p>
-  </section>
-
-  <section class="card" id="network-panel" aria-labelledby="network-title">
-    <div class="card-head">
-      <h2 id="network-title">Network</h2>
-      <span class="pill pill-wait" data-state>Checking…</span>
-    </div>
-    <p class="message" data-message hidden></p>
-    <dl class="fields">
-      <div><dt>Height</dt><dd id="network-height" class="mono">–</dd></div>
-      <div><dt>Average block time</dt><dd id="network-blocktime">–</dd></div>
-      <div><dt>Difficulty</dt><dd id="network-difficulty" class="mono">–</dd></div>
-      <div><dt>Network hash rate (estimate)</dt><dd id="network-hashrate" class="mono">–</dd></div>
-    </dl>
-    <h3>Latest blocks</h3>
-    <table class="blocks">
-      <thead><tr><th scope="col">Block</th><th scope="col">Time</th><th scope="col">Miner</th></tr></thead>
-      <tbody id="network-blocks"></tbody>
-    </table>
-    <p class="note" id="network-note"></p>
-    <p class="updated">Updated <span data-updated>never</span></p>
-  </section>
-
-  <section class="card" id="rewards-panel" aria-labelledby="rewards-title">
-    <div class="card-head">
-      <h2 id="rewards-title">Rewards</h2>
-      <span class="pill pill-wait" data-state>Checking…</span>
-    </div>
-    <p class="message" data-message hidden></p>
-    <dl class="fields">
-      <div><dt>Blocks won today</dt><dd id="rewards-today-count" class="mono">–</dd></div>
-      <div><dt>Earned today</dt><dd id="rewards-today" class="mono">–</dd></div>
-      <div><dt>Blocks won in total</dt><dd id="rewards-total-count" class="mono">–</dd></div>
-      <div><dt>Earned in total</dt><dd id="rewards-total" class="mono">–</dd></div>
-      <div><dt>Payout balance</dt><dd id="rewards-balance" class="mono">–</dd></div>
-      <div><dt>Lost races</dt><dd id="rewards-lost" class="mono">–</dd></div>
-    </dl>
-    <p class="note" id="rewards-lost-note"></p>
-    <h3>Blocks won</h3>
-    <table class="blocks">
-      <thead><tr><th scope="col">Block</th><th scope="col">Time</th><th scope="col">Reward</th></tr></thead>
-      <tbody id="rewards-blocks"></tbody>
-    </table>
-    <p class="note" id="rewards-note"></p>
-    <p class="updated">Updated <span data-updated>never</span></p>
-  </section>
-
-  <section class="card" id="log-panel" aria-labelledby="log-title">
-    <div class="card-head">
-      <h2 id="log-title">Node log</h2>
-      <span class="pill pill-wait" data-state>Checking…</span>
-    </div>
-    <p class="message" data-message hidden></p>
-    <p class="note" id="log-note"></p>
-    <ol class="log" id="log-lines"></ol>
-    <p class="updated">Updated <span data-updated>never</span></p>
-  </section>
-</main>
+</aside>
+<main class="content" id="main"></main>
+</div>
 </body>
 </html>

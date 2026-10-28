@@ -371,16 +371,24 @@ func TestPageBranding(t *testing.T) {
 			t.Errorf("style.css lacks %q", want)
 		}
 	}
-	if strings.Contains(css, "@font-face") || strings.Contains(css, "url(") {
-		t.Error("style.css downloads fonts or other files")
+	// The only files the stylesheet loads are the dashboard's own fonts.
+	urls := strings.Split(css, "url(")
+	if len(urls) < 2 {
+		t.Error("style.css loads no fonts")
 	}
-	js := do(h, http.MethodGet, "/static/app.js", goodHost, withSession).Body.String()
-	if !strings.Contains(js, "5000") {
+	for _, rest := range urls[1:] {
+		if !strings.HasPrefix(strings.TrimLeft(rest, `"'`), "/static/fonts/") {
+			t.Errorf("style.css loads a file outside /static/fonts/: url(%.40s", rest)
+		}
+	}
+	core := do(h, http.MethodGet, "/static/app.js", goodHost, withSession).Body.String()
+	if !strings.Contains(core, "5000") {
 		t.Error("app.js does not refresh every 5 seconds")
 	}
+	js := core + screenJS(t, h)
 	for _, api := range []string{"/api/node", "/api/mining", "/api/network"} {
 		if !strings.Contains(js, `"`+api+`"`) {
-			t.Errorf("app.js does not poll %s", api)
+			t.Errorf("app.js and the screen files do not poll %s", api)
 		}
 	}
 }

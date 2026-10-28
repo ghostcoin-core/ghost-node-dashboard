@@ -164,7 +164,7 @@ func sessionValue(key string) string {
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	hdr := w.Header()
-	hdr.Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
+	hdr.Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
 	hdr.Set("X-Content-Type-Options", "nosniff")
 	hdr.Set("X-Frame-Options", "DENY")
 	hdr.Set("Referrer-Policy", "no-referrer")

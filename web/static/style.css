@@ -1,12 +1,52 @@
+/* Fonts are served by the dashboard itself (latin subset, OFL licence files
+   beside them), so the page makes no outside request. */
+@font-face {
+  font-family: "Instrument Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/static/fonts/instrument-sans-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Instrument Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/static/fonts/instrument-sans-latin-500-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Instrument Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/static/fonts/instrument-sans-latin-600-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/static/fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/static/fonts/ibm-plex-mono-latin-500-normal.woff2") format("woff2");
+}
+
 :root {
   --ink: #0E0D1A;
   --violet: #6B4CFF;
-  --page: #FFFFFF;
-  --muted: #5B5A6B;
-  --line: #E6E4F0;
-  --soft: #F5F3FF;
-  --ok: #1F7A4D;
-  --bad: #B3261E;
+  --violet-tint: #EEEAFF;
+  --mist: #F5F5F8;
+  --line: #E4E3EC;
+  --body: #4A4860;
+  --quiet: #5F5D73;
+  --quiet-2: #6E6C82;
+  --mint: #4FF0C8;
+  --white: #FFFFFF;
   --sans: "Instrument Sans", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace;
   color-scheme: light;
@@ -16,48 +56,238 @@
 
 html, body {
   margin: 0;
-  background: var(--page);
-  color: var(--ink);
+  background: var(--mist);
+  color: var(--body);
   font-family: var(--sans);
   font-size: 16px;
   line-height: 1.5;
 }
 
-.top {
+[hidden] { display: none !important; }
+
+.mono { font-family: var(--mono); }
+code { font-family: var(--mono); font-size: 0.9em; }
+a { color: var(--violet); }
+
+/* Shell: sidebar and content. */
+
+.shell {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  height: 100vh;
+  padding: 24px 16px;
+  background: var(--white);
+  border-right: 1px solid var(--line);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 8px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.brand .logo { width: 28px; height: 28px; flex: none; }
+.brand-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  color: var(--ink);
+}
+.brand-node {
+  font-size: 1.25rem;
+  color: var(--quiet);
+  margin-left: -4px;
+}
+
+.nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.nav a {
   display: flex;
   align-items: center;
   gap: 12px;
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 20px 16px 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  color: var(--body);
+  font-weight: 500;
+  text-decoration: none;
+}
+.nav a:hover { background: var(--mist); color: var(--ink); }
+.nav a[aria-current="page"] { background: var(--violet-tint); color: var(--ink); }
+.nav a[aria-current="page"] .icon { stroke: var(--violet); }
+.nav a:focus-visible,
+.brand:focus-visible {
+  outline: 2px solid var(--violet);
+  outline-offset: 2px;
 }
 
-.top h1 {
-  margin: 0;
-  font-size: 1.25rem;
+.icon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.badge {
+  margin-left: auto;
+  min-width: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--white);
+  font-size: 0.75rem;
+  line-height: 22px;
+  text-align: center;
+}
+
+.node-card {
+  margin-top: auto;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--white);
+  font-size: 0.85rem;
+}
+.node-card p { margin: 0; overflow-wrap: anywhere; }
+.node-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
   font-weight: 600;
-  letter-spacing: -0.01em;
+}
+.node-line { color: var(--quiet); margin-top: 4px !important; }
+.node-line.mono { font-size: 0.78rem; }
+
+.dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--quiet-2);
+}
+.dot-on { background: var(--violet); }
+
+.content {
+  min-width: 0;
+  padding: 28px 36px;
+  background: var(--mist);
 }
 
-main {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 8px 16px 32px;
+.page-head { margin-bottom: 24px; }
+.page-head h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
+.page-head h1:focus { outline: none; }
+.sentence {
+  margin: 6px 0 0;
+  color: var(--body);
+  overflow-wrap: anywhere;
+}
+
+.screen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+/* Cards. */
 
 .card {
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  min-width: 0;
   padding: 20px;
-  background: var(--page);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--white);
 }
 
-.card + .card { margin-top: 16px; }
-
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.card h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 600;
+}
 .card h3 {
   margin: 24px 0 8px;
+  color: var(--ink);
   font-size: 0.9rem;
   font-weight: 600;
+}
+
+.pill {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+.pill-wait { background: var(--mist); color: var(--quiet); }
+.pill-ok { background: var(--violet-tint); color: var(--ink); }
+.pill-bad { background: var(--white); color: var(--ink); border-color: var(--ink); }
+
+.message {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--violet-tint);
+  color: var(--ink);
+}
+.message.error {
+  background: var(--white);
+  border: 1px solid var(--ink);
+  font-weight: 500;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 16px;
+  margin: 20px 0 0;
+}
+.fields div { min-width: 0; }
+.fields .wide { grid-column: 1 / -1; }
+.fields dt { color: var(--quiet); font-size: 0.8rem; }
+.fields dd {
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-size: 1.05rem;
+  overflow-wrap: anywhere;
 }
 
 progress {
@@ -67,29 +297,23 @@ progress {
   margin: 16px 0 0;
   accent-color: var(--violet);
 }
-progress[hidden] { display: none; }
 
-.copy-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+.note {
+  margin: 16px 0 0;
+  color: var(--quiet);
+  font-size: 0.85rem;
 }
 
-.copy {
-  font: inherit;
+.updated {
+  margin: 20px 0 0;
+  color: var(--quiet);
   font-size: 0.8rem;
-  padding: 2px 10px;
-  border: 1px solid var(--violet);
-  border-radius: 6px;
-  background: var(--page);
-  color: var(--violet);
-  cursor: pointer;
 }
-.copy[hidden] { display: none; }
+
+/* Controls: every target is at least 44 px tall. */
 
 .controls { margin: 0; }
-.controls label { font-size: 0.9rem; }
+.controls label { display: block; margin-top: 16px; font-size: 0.9rem; color: var(--ink); }
 
 .control-row {
   display: flex;
@@ -101,16 +325,47 @@ progress[hidden] { display: none; }
 .control-row input[type="range"] {
   flex: 1;
   min-width: 160px;
+  min-height: 44px;
   accent-color: var(--violet);
 }
-
 .control-row input[type="text"] {
   flex: 1;
-  min-width: 200px;
+  min-width: 0;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--quiet);
+  border-radius: 8px;
+  color: var(--ink);
   font-size: 0.85rem;
-  padding: 4px 8px;
-  border: 1px solid var(--muted);
-  border-radius: 6px;
+}
+
+.action,
+.copy {
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1px solid var(--violet);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.action { background: var(--violet); color: var(--white); }
+.copy { background: var(--white); color: var(--violet); }
+.action:disabled { opacity: 0.5; cursor: default; }
+.action:focus-visible,
+.copy:focus-visible,
+.control-row input:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.copy-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .output {
@@ -118,34 +373,19 @@ progress[hidden] { display: none; }
   max-height: 240px;
   overflow: auto;
   padding: 8px;
-  border-radius: 6px;
-  background: var(--page);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--mist);
+  color: var(--ink);
+  font-family: var(--mono);
   font-size: 0.8rem;
   white-space: pre-wrap;
   word-break: break-all;
 }
-.output[hidden] { display: none; }
 
-.action {
-  font: inherit;
-  font-size: 0.9rem;
-  padding: 4px 14px;
-  border: 1px solid var(--violet);
-  border-radius: 6px;
-  background: var(--violet);
-  color: var(--page);
-  cursor: pointer;
-}
-.action[hidden] { display: none; }
-.action:disabled { opacity: 0.5; cursor: default; }
+/* Tables of blocks. */
 
-.message.error { color: var(--bad); }
-
-.note {
-  margin: 16px 0 0;
-  color: var(--muted);
-  font-size: 0.8rem;
-}
+.table-wrap { max-width: 100%; overflow-x: auto; }
 
 .blocks {
   width: 100%;
@@ -154,113 +394,67 @@ progress[hidden] { display: none; }
 }
 .blocks th {
   text-align: left;
-  color: var(--muted);
+  color: var(--quiet);
   font-weight: 400;
   font-size: 0.8rem;
   padding: 4px 8px 4px 0;
   border-bottom: 1px solid var(--line);
 }
 .blocks td {
-  padding: 4px 8px 4px 0;
+  padding: 6px 8px 6px 0;
   border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  overflow-wrap: anywhere;
 }
-.blocks tr.own td {
-  color: var(--violet);
-  font-weight: 600;
-}
-.blocks tr.own { background: var(--soft); }
+.blocks tr.own { background: var(--violet-tint); }
+.blocks tr.own td { font-weight: 600; }
+
+/* The node log is the one box on ink. */
 
 .log {
   list-style: none;
   margin: 12px 0 0;
-  padding: 0;
+  padding: 8px 12px;
   max-height: 480px;
   overflow-y: auto;
-  border-top: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--ink);
+  color: var(--white);
 }
 .log li {
   padding: 4px 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--body);
 }
+.log li:last-child { border-bottom: 0; }
 .log code {
   display: block;
-  font-family: var(--mono);
   font-size: 0.75rem;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 .log .meaning {
   display: block;
-  color: var(--violet);
+  color: var(--violet-tint);
   font-size: 0.8rem;
 }
 
-.card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
+/* Phone width: the sidebar stacks above the content. */
 
-.card h2 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.pill {
-  display: inline-block;
-  padding: 2px 10px;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  border: 1px solid currentColor;
-}
-.pill-wait { color: var(--muted); }
-.pill-ok { color: var(--ok); }
-.pill-bad { color: var(--bad); }
-
-.message {
-  margin: 12px 0 0;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: var(--soft);
-  color: var(--ink);
-}
-
-.fields {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 16px;
-  margin: 20px 0 0;
-}
-
-.fields div { min-width: 0; }
-.fields .wide { grid-column: 1 / -1; }
-
-.fields dt {
-  color: var(--muted);
-  font-size: 0.8rem;
-}
-
-.fields dd {
-  margin: 2px 0 0;
-  font-size: 1.05rem;
-  overflow-wrap: anywhere;
-}
-
-.mono { font-family: var(--mono); }
-
-.updated {
-  margin: 20px 0 0;
-  color: var(--muted);
-  font-size: 0.8rem;
-}
-
-a { color: var(--violet); }
-
-@media (max-width: 420px) {
+@media (max-width: 760px) {
+  .shell { display: block; }
+  .sidebar {
+    position: static;
+    height: auto;
+    gap: 12px;
+    padding: 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .nav ul { flex-direction: row; flex-wrap: wrap; }
+  .nav li { flex: 1 1 40%; }
+  .node-card { margin-top: 0; }
+  .content { padding: 20px 16px; }
+  .page-head h1 { font-size: 26px; }
   .card { padding: 16px; }
   .fields { grid-template-columns: 1fr 1fr; }
 }
