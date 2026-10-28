@@ -67,19 +67,25 @@ func coinbase(ctx context.Context, node Caller) (string, error) {
 
 type block struct {
 	Number     uint64
+	Hash       string
 	Time       uint64
 	Miner      string
 	Difficulty *uint64
+	// Transactions is how many transactions the block holds; nil when the
+	// node did not send the list.
+	Transactions *int
 }
 
 // getBlock reads one block header by number. It returns nil without an error
 // when the node does not have that block.
 func getBlock(ctx context.Context, node Caller, number uint64) (*block, error) {
 	var raw *struct {
-		Number     string `json:"number"`
-		Timestamp  string `json:"timestamp"`
-		Miner      string `json:"miner"`
-		Difficulty string `json:"difficulty"`
+		Number       string             `json:"number"`
+		Hash         string             `json:"hash"`
+		Timestamp    string             `json:"timestamp"`
+		Miner        string             `json:"miner"`
+		Difficulty   string             `json:"difficulty"`
+		Transactions *[]json.RawMessage `json:"transactions"`
 	}
 	if err := node.Call(ctx, &raw, "eth_getBlockByNumber", "0x"+strconv.FormatUint(number, 16), false); err != nil {
 		return nil, err
@@ -95,9 +101,13 @@ func getBlock(ctx context.Context, node Caller, number uint64) (*block, error) {
 	if err != nil {
 		return nil, fmt.Errorf("block timestamp: %w", err)
 	}
-	b := &block{Number: n, Time: ts, Miner: raw.Miner}
+	b := &block{Number: n, Hash: raw.Hash, Time: ts, Miner: raw.Miner}
 	if d, err := parseQuantity(raw.Difficulty); err == nil {
 		b.Difficulty = &d
+	}
+	if raw.Transactions != nil {
+		count := len(*raw.Transactions)
+		b.Transactions = &count
 	}
 	return b, nil
 }
