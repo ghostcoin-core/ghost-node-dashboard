@@ -26,6 +26,8 @@ type MiningPanel struct {
 	CoresUsed        int  `json:"coresUsed"`
 	CoresFromSetting bool `json:"coresFromSetting"`
 	LogicalCores     int  `json:"logicalCores"`
+	// Paused is true when <node-dir>/mining-paused exists.
+	Paused bool `json:"paused"`
 	// HashRate is in hashes per second; null when zero or not offered.
 	HashRate      *float64 `json:"hashRate"`
 	PayoutAddress *string  `json:"payoutAddress"`
@@ -50,12 +52,14 @@ func FetchMining(ctx context.Context, node Caller, env MiningEnv) MiningPanel {
 	if n, ok := minerThreads(env.NodeDir); ok {
 		p.CoresUsed, p.CoresFromSetting = n, true
 	}
+	p.Paused = MiningPaused(env.NodeDir)
 	down := func(err error) MiningPanel {
 		return MiningPanel{
 			Error:              downMessage(err),
 			CoresUsed:          p.CoresUsed,
 			CoresFromSetting:   p.CoresFromSetting,
 			LogicalCores:       p.LogicalCores,
+			Paused:             p.Paused,
 			TargetBlockSeconds: p.TargetBlockSeconds,
 		}
 	}

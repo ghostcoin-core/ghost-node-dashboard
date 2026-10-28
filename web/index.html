@@ -62,6 +62,20 @@
           <button type="button" id="mining-copy" class="copy" hidden>Copy</button></dd></div>
     </dl>
     <p class="note" id="mining-note"></p>
+    <h3>Controls</h3>
+    <form class="controls" id="cores-form">
+      <label for="cores-input">Cores to mine on: <span id="cores-value" class="mono">–</span></label>
+      <div class="control-row">
+        <input type="range" id="cores-input" min="1" max="1" step="1" value="1">
+        <button type="submit" id="cores-apply" class="action">Apply</button>
+      </div>
+    </form>
+    <div class="control-row">
+      <button type="button" id="mining-pause" class="action" hidden>Pause mining</button>
+      <button type="button" id="mining-resume" class="action" hidden>Resume mining</button>
+    </div>
+    <p class="message" id="control-result" role="status" hidden></p>
+    <p class="note">The core count is saved in the node folder, so restarts and updates keep it. While mining is paused the node keeps syncing. For now a node restart resumes mining, until the node installer learns to read the <code>mining-paused</code> file.</p>
     <p class="updated">Updated <span data-updated>never</span></p>
   </section>
 
