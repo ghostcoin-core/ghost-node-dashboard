@@ -88,6 +88,37 @@ progress[hidden] { display: none; }
 }
 .copy[hidden] { display: none; }
 
+.controls { margin: 0; }
+.controls label { font-size: 0.9rem; }
+
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.control-row input[type="range"] {
+  flex: 1;
+  min-width: 160px;
+  accent-color: var(--violet);
+}
+
+.action {
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 4px 14px;
+  border: 1px solid var(--violet);
+  border-radius: 6px;
+  background: var(--violet);
+  color: var(--page);
+  cursor: pointer;
+}
+.action[hidden] { display: none; }
+.action:disabled { opacity: 0.5; cursor: default; }
+
+.message.error { color: var(--bad); }
+
 .note {
   margin: 16px 0 0;
   color: var(--muted);

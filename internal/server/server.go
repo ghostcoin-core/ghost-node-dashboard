@@ -13,8 +13,11 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"io"
 	"runtime"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ghostcoin-core/ghost-node-dashboard/internal/status"
@@ -55,6 +58,10 @@ type handler struct {
 	rewards *status.Rewards
 	nodeDir string
 	mux     *http.ServeMux
+
+	// control serialises the mining controls so two changes do not
+	// interleave their node calls and file writes.
+	control sync.Mutex
 }
 
 // New returns the dashboard handler.
@@ -102,6 +109,9 @@ func New(cfg Config) http.Handler {
 	h.mux.HandleFunc("GET /api/network", h.networkPanel)
 	h.mux.HandleFunc("GET /api/rewards", h.rewardsPanel)
 	h.mux.HandleFunc("GET /api/log", h.logPanel)
+	h.mux.HandleFunc("POST /api/mining/cores", h.setCores)
+	h.mux.HandleFunc("POST /api/mining/pause", h.pauseMining)
+	h.mux.HandleFunc("POST /api/mining/resume", h.resumeMining)
 	return h
 }
 
@@ -218,6 +228,63 @@ func (h *handler) rewardsPanel(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) logPanel(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, status.ReadLog(h.nodeDir))
+}
+
+// maxControlBody bounds a control request's body.
+const maxControlBody = 1 << 10
+
+// setCores takes {"cores": n}. n must be a whole number from 1 to the
+// computer's logical core count.
+func (h *handler) setCores(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxControlBody))
+	if err != nil {
+		h.badCores(w)
+		return
+	}
+	var req struct {
+		Cores json.RawMessage `json:"cores"`
+	}
+	if err := json.Unmarshal(body, &req); err != nil {
+		h.badCores(w)
+		return
+	}
+	// Parse the raw text so 2.5, 4.0, 1e1 and "4" are all refused.
+	n, err := strconv.Atoi(string(req.Cores))
+	if err != nil || !status.ValidCores(n, h.mining.LogicalCores) {
+		h.badCores(w)
+		return
+	}
+	h.control.Lock()
+	defer h.control.Unlock()
+	ctx, cancel := context.WithTimeout(r.Context(), StatusTimeout)
+	defer cancel()
+	writeJSON(w, status.SetCores(ctx, h.node, h.mining, n))
+}
+
+func (h *handler) badCores(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusBadRequest)
+	_ = json.NewEncoder(w).Encode(status.ControlResult{
+		Error:     fmt.Sprintf("Choose a whole number of cores from 1 to %d.", h.mining.LogicalCores),
+		CoresUsed: status.SavedCores(h.mining),
+		Paused:    status.MiningPaused(h.nodeDir),
+	})
+}
+
+func (h *handler) pauseMining(w http.ResponseWriter, r *http.Request) {
+	h.control.Lock()
+	defer h.control.Unlock()
+	ctx, cancel := context.WithTimeout(r.Context(), StatusTimeout)
+	defer cancel()
+	writeJSON(w, status.Pause(ctx, h.node, h.mining))
+}
+
+func (h *handler) resumeMining(w http.ResponseWriter, r *http.Request) {
+	h.control.Lock()
+	defer h.control.Unlock()
+	ctx, cancel := context.WithTimeout(r.Context(), StatusTimeout)
+	defer cancel()
+	writeJSON(w, status.Resume(ctx, h.node, h.mining))
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

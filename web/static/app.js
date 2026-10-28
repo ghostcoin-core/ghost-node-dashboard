@@ -159,9 +159,89 @@
     var copy = el("mining-copy");
     copy.hidden = !s.payoutAddress;
     copy.dataset.value = s.payoutAddress || "";
+    renderControls(s);
     text("mining-note", "Estimates assume a target block time of " + s.targetBlockSeconds +
       " s and change with the network.");
   }
+
+  // The slider follows the saved core count until the person moves it.
+  var coresTouched = false;
+  var controlBusy = false;
+
+  function renderControls(s) {
+    var input = el("cores-input");
+    input.max = String(s.logicalCores);
+    if (!coresTouched) {
+      input.value = String(s.coresUsed);
+      text("cores-value", s.coresUsed + " of " + s.logicalCores);
+    }
+    el("mining-pause").hidden = s.paused;
+    el("mining-resume").hidden = !s.paused;
+  }
+
+  function setControlsBusy(busy) {
+    controlBusy = busy;
+    ["cores-apply", "mining-pause", "mining-resume"].forEach(function (id) {
+      el(id).disabled = busy;
+    });
+  }
+
+  function showResult(msg, failed) {
+    var box = el("control-result");
+    box.textContent = msg;
+    box.hidden = !msg;
+    box.className = failed ? "message error" : "message";
+  }
+
+  function control(url, body) {
+    if (controlBusy) return;
+    setControlsBusy(true);
+    showResult("Asking the node…", false);
+    fetch(url, {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body || {}),
+    })
+      .then(function (r) {
+        if (r.status === 401) {
+          throw new Error("This browser is not signed in. Open the dashboard from the link the installer printed.");
+        }
+        return r.json().catch(function () {
+          throw new Error("The dashboard answered " + r.status + ".");
+        });
+      })
+      .then(function (res) {
+        showResult(res.ok ? res.message : res.error, !res.ok);
+        coresTouched = false;
+        panels[1].refresh();
+      })
+      .catch(function (err) {
+        showResult(err.message, true);
+      })
+      .then(function () {
+        setControlsBusy(false);
+      });
+  }
+
+  el("cores-input").addEventListener("input", function () {
+    coresTouched = true;
+    text("cores-value", this.value + " of " + this.max);
+  });
+
+  el("cores-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    control("/api/mining/cores", { cores: parseInt(el("cores-input").value, 10) });
+  });
+
+  el("mining-pause").addEventListener("click", function () {
+    control("/api/mining/pause");
+  });
+
+  el("mining-resume").addEventListener("click", function () {
+    control("/api/mining/resume");
+  });
 
   function renderNetwork(panel, s) {
     if (s.running) panel.setState("Connected", "ok");
