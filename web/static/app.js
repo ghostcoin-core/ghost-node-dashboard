@@ -49,11 +49,21 @@
     return p.toFixed(p < 1 ? 2 : 1) + " %";
   }
 
-  // A panel is one card fed by one API endpoint.
-  function Panel(id, url, render) {
+  function coins(a) {
+    return a.coins + " GHOST";
+  }
+
+  function clear(node) {
+    while (node.firstChild) node.removeChild(node.firstChild);
+  }
+
+  // A panel is one card fed by one API endpoint. A local panel reads this
+  // computer rather than the node and sets its own state.
+  function Panel(id, url, render, local) {
     this.root = el(id);
     this.url = url;
     this.render = render;
+    this.local = !!local;
   }
 
   Panel.prototype.part = function (name) {
@@ -83,7 +93,7 @@
         return r.json();
       })
       .then(function (data) {
-        if (data.running) {
+        if (panel.local || data.running) {
           panel.setMessage("");
         } else {
           panel.setState("Node not running", "bad");
@@ -181,6 +191,73 @@
     });
   }
 
+  function renderRewards(panel, s) {
+    if (s.running) {
+      panel.setState(s.indexing ? "Reading blocks" : "Up to date", s.indexing ? "wait" : "ok");
+    }
+    text("rewards-today-count", show(s.wonToday, num));
+    text("rewards-today", coins(s.rewardToday));
+    text("rewards-total-count", show(s.wonTotal, num));
+    text("rewards-total", coins(s.rewardTotal));
+    text("rewards-balance", show(s.balance, coins));
+    text("rewards-lost", show(s.lostRaces, num));
+    text("rewards-lost-note", "A lost race: " + s.lostRacesNote);
+
+    var body = el("rewards-blocks");
+    clear(body);
+    (s.blocks || []).forEach(function (b) {
+      var row = document.createElement("tr");
+      [num(b.number), new Date(b.time * 1000).toLocaleString(), b.reward ? coins(b.reward) : "unknown"]
+        .forEach(function (v, i) {
+          var cell = document.createElement("td");
+          cell.textContent = v;
+          if (i !== 1) cell.className = "mono";
+          if (i === 0) cell.title = b.hash;
+          row.appendChild(cell);
+        });
+      body.appendChild(row);
+    });
+
+    var notes = [];
+    if (!s.payoutAddress) notes.push("The node has no payout address, so it cannot win blocks.");
+    else if (!s.blocks || !s.blocks.length) notes.push("No blocks won yet.");
+    if (s.wonTotal > (s.blocks || []).length) notes.push("Showing the latest " + s.blocks.length + " blocks won.");
+    if (s.indexing) {
+      notes.push("Reading the chain for your blocks: " +
+        (s.indexing.readTo === null ? "starting" : "block " + num(s.indexing.readTo)) +
+        " of " + num(s.indexing.height) + ".");
+    }
+    if (s.unknownRewards) {
+      notes.push(s.unknownRewards + " block(s) won show no reward: the node no longer keeps the balances from then, so they are left out of the sums.");
+    }
+    notes.push("Each reward is your balance change across the block. Today is in this computer's time.");
+    if (s.indexError) notes.push("Index problem: " + s.indexError);
+    text("rewards-note", notes.join(" "));
+  }
+
+  function renderLog(panel, s) {
+    if (s.available) panel.setState("Read only", "ok");
+    else panel.setState("No log", "wait");
+    text("log-note", s.available
+      ? "The last " + s.lines.length + " lines of " + s.path + ", newest first."
+      : s.message + " (" + s.path + ")");
+    var list = el("log-lines");
+    clear(list);
+    s.lines.forEach(function (line) {
+      var item = document.createElement("li");
+      var code = document.createElement("code");
+      code.textContent = line.text;
+      item.appendChild(code);
+      if (line.meaning) {
+        var meaning = document.createElement("span");
+        meaning.className = "meaning";
+        meaning.textContent = line.meaning;
+        item.appendChild(meaning);
+      }
+      list.appendChild(item);
+    });
+  }
+
   el("mining-copy").addEventListener("click", function () {
     var button = this;
     var value = button.dataset.value;
@@ -195,6 +272,8 @@
     new Panel("node-panel", "/api/node", renderNode),
     new Panel("mining-panel", "/api/mining", renderMining),
     new Panel("network-panel", "/api/network", renderNetwork),
+    new Panel("rewards-panel", "/api/rewards", renderRewards),
+    new Panel("log-panel", "/api/log", renderLog, true),
   ];
 
   function refresh() {

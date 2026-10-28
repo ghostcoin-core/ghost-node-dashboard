@@ -52,6 +52,8 @@ type handler struct {
 	node    status.Caller
 	nodeEnv status.NodeEnv
 	mining  status.MiningEnv
+	rewards *status.Rewards
+	nodeDir string
 	mux     *http.ServeMux
 }
 
@@ -68,8 +70,10 @@ func New(cfg Config) http.Handler {
 			AutoUpdate: cfg.AutoUpdate,
 			Now:        cfg.Now,
 		},
-		mining: status.MiningEnv{NodeDir: cfg.NodeDir, LogicalCores: cfg.LogicalCores},
-		mux:    http.NewServeMux(),
+		mining:  status.MiningEnv{NodeDir: cfg.NodeDir, LogicalCores: cfg.LogicalCores},
+		rewards: status.NewRewards(status.RewardsEnv{NodeDir: cfg.NodeDir, Now: cfg.Now}),
+		nodeDir: cfg.NodeDir,
+		mux:     http.NewServeMux(),
 	}
 	if h.nodeEnv.AutoUpdate == nil {
 		h.nodeEnv.AutoUpdate = status.AutoUpdateInstalled
@@ -96,6 +100,8 @@ func New(cfg Config) http.Handler {
 	h.mux.HandleFunc("GET /api/node", h.nodePanel)
 	h.mux.HandleFunc("GET /api/mining", h.miningPanel)
 	h.mux.HandleFunc("GET /api/network", h.networkPanel)
+	h.mux.HandleFunc("GET /api/rewards", h.rewardsPanel)
+	h.mux.HandleFunc("GET /api/log", h.logPanel)
 	return h
 }
 
@@ -202,6 +208,16 @@ func (h *handler) networkPanel(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), StatusTimeout)
 	defer cancel()
 	writeJSON(w, status.FetchNetwork(ctx, h.node))
+}
+
+func (h *handler) rewardsPanel(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), StatusTimeout)
+	defer cancel()
+	writeJSON(w, h.rewards.Fetch(ctx, h.node))
+}
+
+func (h *handler) logPanel(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, status.ReadLog(h.nodeDir))
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
