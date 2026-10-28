@@ -84,7 +84,7 @@
     </form>
     <p class="message" id="control-result" role="status" hidden></p>
     <p class="note">A new payout address applies at once and is saved in the node's <code>config.toml</code>, so restarts keep it. Only the address is needed: never enter a private key or recovery words here.</p>
-    <p class="note">The core count is saved in the node folder, so restarts and updates keep it. While mining is paused the node keeps syncing. For now a node restart resumes mining, until the node installer learns to read the <code>mining-paused</code> file.</p>
+    <p class="note">The core count is saved in the node folder and applies at the next node restart: the node cannot change it while running. Restarts and updates keep it. While mining is paused the node keeps syncing. For now a node restart resumes mining, until the node installer learns to read the <code>mining-paused</code> file.</p>
     <p class="updated">Updated <span data-updated>never</span></p>
   </section>
 
