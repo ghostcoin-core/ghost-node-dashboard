@@ -375,7 +375,12 @@ func TestPageBranding(t *testing.T) {
 		t.Error("style.css downloads fonts or other files")
 	}
 	js := do(h, http.MethodGet, "/static/app.js", goodHost, withSession).Body.String()
-	if !strings.Contains(js, "5000") || !strings.Contains(js, "/api/status") {
-		t.Error("app.js does not poll /api/status every 5 seconds")
+	if !strings.Contains(js, "5000") {
+		t.Error("app.js does not refresh every 5 seconds")
+	}
+	for _, api := range []string{"/api/node", "/api/mining", "/api/network"} {
+		if !strings.Contains(js, `"`+api+`"`) {
+			t.Errorf("app.js does not poll %s", api)
+		}
 	}
 }

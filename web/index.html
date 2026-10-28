@@ -26,22 +26,64 @@
   <h1>Ghost Node</h1>
 </header>
 <main>
-  <section class="card" aria-labelledby="status-title">
+  <section class="card" id="node-panel" aria-labelledby="node-title">
     <div class="card-head">
-      <h2 id="status-title">Node status</h2>
-      <span id="state" class="pill pill-wait">Checking…</span>
+      <h2 id="node-title">Your node</h2>
+      <span class="pill pill-wait" data-state>Checking…</span>
     </div>
-    <p id="message" class="message" hidden></p>
+    <p class="message" data-message hidden></p>
     <dl class="fields">
-      <div><dt>Network (chain ID)</dt><dd id="chainId" class="mono">–</dd></div>
-      <div><dt>Block</dt><dd id="blockNumber" class="mono">–</dd></div>
-      <div><dt>Peers</dt><dd id="peerCount" class="mono">–</dd></div>
-      <div><dt>Syncing</dt><dd id="syncing">–</dd></div>
-      <div><dt>Mining</dt><dd id="mining">–</dd></div>
-      <div class="wide"><dt>Payout address</dt><dd id="payoutAddress" class="mono">–</dd></div>
-      <div class="wide"><dt>Client version</dt><dd id="clientVersion" class="mono">–</dd></div>
+      <div><dt>Sync</dt><dd id="node-sync">–</dd></div>
+      <div><dt>Block</dt><dd id="node-blocks" class="mono">–</dd></div>
+      <div><dt>Peers</dt><dd id="node-peers" class="mono">–</dd></div>
+      <div><dt>Up for</dt><dd id="node-uptime">–</dd></div>
+      <div><dt>Network</dt><dd id="node-network">–</dd></div>
+      <div><dt>Automatic updates</dt><dd id="node-autoupdate">–</dd></div>
+      <div class="wide"><dt>Peer clients</dt><dd id="node-clients" class="mono">–</dd></div>
+      <div class="wide"><dt>Client version</dt><dd id="node-version" class="mono">–</dd></div>
     </dl>
-    <p class="updated">Updated <span id="updated">never</span></p>
+    <progress id="node-progress" max="100" value="0" hidden></progress>
+    <p class="updated">Updated <span data-updated>never</span></p>
+  </section>
+
+  <section class="card" id="mining-panel" aria-labelledby="mining-title">
+    <div class="card-head">
+      <h2 id="mining-title">Mining</h2>
+      <span class="pill pill-wait" data-state>Checking…</span>
+    </div>
+    <p class="message" data-message hidden></p>
+    <dl class="fields">
+      <div><dt>Cores used</dt><dd id="mining-cores" class="mono">–</dd></div>
+      <div id="mining-hashrate-row" hidden><dt>Hash rate</dt><dd id="mining-hashrate" class="mono">–</dd></div>
+      <div><dt>Share of the network (estimate)</dt><dd id="mining-share" class="mono">–</dd></div>
+      <div><dt>Next block in (estimate)</dt><dd id="mining-next">–</dd></div>
+      <div class="wide"><dt>Payout address</dt>
+        <dd class="copy-row"><span id="mining-payout" class="mono">–</span>
+          <button type="button" id="mining-copy" class="copy" hidden>Copy</button></dd></div>
+    </dl>
+    <p class="note" id="mining-note"></p>
+    <p class="updated">Updated <span data-updated>never</span></p>
+  </section>
+
+  <section class="card" id="network-panel" aria-labelledby="network-title">
+    <div class="card-head">
+      <h2 id="network-title">Network</h2>
+      <span class="pill pill-wait" data-state>Checking…</span>
+    </div>
+    <p class="message" data-message hidden></p>
+    <dl class="fields">
+      <div><dt>Height</dt><dd id="network-height" class="mono">–</dd></div>
+      <div><dt>Average block time</dt><dd id="network-blocktime">–</dd></div>
+      <div><dt>Difficulty</dt><dd id="network-difficulty" class="mono">–</dd></div>
+      <div><dt>Network hash rate (estimate)</dt><dd id="network-hashrate" class="mono">–</dd></div>
+    </dl>
+    <h3>Latest blocks</h3>
+    <table class="blocks">
+      <thead><tr><th scope="col">Block</th><th scope="col">Time</th><th scope="col">Miner</th></tr></thead>
+      <tbody id="network-blocks"></tbody>
+    </table>
+    <p class="note" id="network-note"></p>
+    <p class="updated">Updated <span data-updated>never</span></p>
   </section>
 </main>
 </body>

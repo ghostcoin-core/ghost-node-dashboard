@@ -24,6 +24,16 @@ Flags (for both):
 
 The dashboard reads the node through its IPC endpoint: `<node-dir>/data/geth.ipc` on macOS and Linux, the named pipe `\\.\pipe\geth.ipc` on Windows. When the node is stopped the page says so and picks the node up again when it starts.
 
+### What the page shows
+
+The page refreshes every 5 seconds without reloading. Each panel says "Node not running" while the node is down.
+
+- **Your node:** running or not; in sync, or syncing with the current and highest block; peers and the clients they run; client version; how long the node has been up (from when it opened its IPC socket, or, on Windows, from the dashboard's first answer after it came up); the network ("Ghost test network" for chain ID 6777972); whether automatic updates are installed (`~/Library/LaunchAgents/com.ghostcoin.node.update.plist` on macOS, the `ghost-node-update.timer` systemd user timer on Linux, the `GhostNodeUpdate` scheduled task on Windows).
+- **Mining:** mining or paused; cores used (`<node-dir>/miner-threads`, else every core) of the computer's cores; the node's hash rate when it reports one; the payout address with a copy button; and estimates of your share of the network and the time to your next block.
+- **Network:** height; average block time over the last 100 blocks; difficulty; an estimated network hash rate (difficulty ÷ the target block time); and the last 20 blocks, with your own in violet.
+
+The estimates use a target block time of 15 seconds. Each panel reads one endpoint, behind the dashboard key: `/api/node`, `/api/mining` and `/api/network`.
+
 ### Access
 
 The dashboard key lives in `<node-dir>/dashboard-key` (created with owner-only permissions if it is missing). Opening `http://127.0.0.1:<port>/open?key=<key>` signs the browser in with a cookie; every other request without that cookie is refused. The dashboard also refuses requests addressed to any host other than `127.0.0.1:<port>` or `localhost:<port>`, sends no CORS headers, and only accepts POSTs from its own page.

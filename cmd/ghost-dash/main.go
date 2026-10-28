@@ -89,7 +89,7 @@ func serve(cfg config.Config, key string) error {
 		return err
 	}
 	srv := &http.Server{
-		Handler:           server.New(server.Config{Port: cfg.Port, Key: key, Node: node}),
+		Handler:           server.New(server.Config{Port: cfg.Port, Key: key, Node: node, NodeDir: cfg.NodeDir}),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
