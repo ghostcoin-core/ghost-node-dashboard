@@ -41,8 +41,8 @@ The dashboard finds your blocks by reading the chain over IPC and keeps what it 
 
 The Mining panel has a cores slider, from 1 to the computer's logical core count, and a pause or resume button.
 
-- **Apply** asks the node to mine on that many cores at once (`miner_start`) and saves the number in `<node-dir>/miner-threads`, the file the installer and updater read, so restarts and updates keep it. The file is replaced in one step (a temporary file renamed over it) and keeps its permissions. While mining is paused the number is only saved, and resuming uses it.
-- **Pause** stops mining (`miner_stop`) and writes `<node-dir>/mining-paused`; the node keeps syncing. **Resume** removes that file and starts mining on the saved core count. Until the node installer reads `mining-paused`, a node restart resumes mining.
+- **Apply** saves the number in `<node-dir>/miner-threads`, the file the installer and updater read, and makes sure the node is mining (`miner_start`, with no parameters). The node's `miner_start` takes no core count and its miner API has no call to set one, so the new count applies at the next node restart, and restarts and updates keep it. The file is replaced in one step (a temporary file renamed over it) and keeps its permissions. While mining is paused the number is only saved.
+- **Pause** stops mining (`miner_stop`) and writes `<node-dir>/mining-paused`; the node keeps syncing. **Resume** removes that file and starts mining (`miner_start`, with no parameters) on the core count the node started with; a saved count applies at the next node restart. Until the node installer reads `mining-paused`, a node restart resumes mining.
 
 After each change the dashboard reads the node back (`eth_mining`) and says in plain words what happened, or what went wrong. The controls are `POST /api/mining/cores` (body `{"cores": n}`, a whole number in range, else 400), `POST /api/mining/pause` and `POST /api/mining/resume`, behind the dashboard key and the Origin check.
 

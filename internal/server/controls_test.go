@@ -1,7 +1,9 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,6 +14,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/ghostcoin-core/ghost-node-dashboard/internal/ipc"
 	"github.com/ghostcoin-core/ghost-node-dashboard/internal/ipc/ipctest"
 	"github.com/ghostcoin-core/ghost-node-dashboard/internal/status"
 )
@@ -19,7 +22,8 @@ import (
 const goodOrigin = "http://127.0.0.1:8580"
 
 // fakeMiner is a node whose miner_start and miner_stop change what
-// eth_mining reports, recording the thread counts miner_start was given.
+// eth_mining reports, recording the params of each miner_start it took. Like
+// the real node, its miner_start refuses any parameter.
 type fakeMiner struct {
 	mu      sync.Mutex
 	mining  bool
@@ -28,13 +32,13 @@ type fakeMiner struct {
 
 func (m *fakeMiner) handlers() map[string]ipctest.Handler {
 	return map[string]ipctest.Handler{
-		"miner_start": func(params json.RawMessage) (any, *ipctest.Error) {
+		"miner_start": ipctest.NoParams(func(params json.RawMessage) (any, *ipctest.Error) {
 			m.mu.Lock()
 			defer m.mu.Unlock()
 			m.mining = true
 			m.started = append(m.started, params)
 			return nil, nil
-		},
+		}),
 		"miner_stop": func(json.RawMessage) (any, *ipctest.Error) {
 			m.mu.Lock()
 			defer m.mu.Unlock()
@@ -119,15 +123,15 @@ func TestSetCores(t *testing.T) {
 	if !res.OK || res.Error != "" {
 		t.Errorf("result %+v, want ok", res)
 	}
-	if !strings.Contains(res.Message, "3 cores") {
-		t.Errorf("message %q does not name 3 cores", res.Message)
+	if !strings.Contains(res.Message, "3 cores") || !strings.Contains(res.Message, "next node restart") {
+		t.Errorf("message %q does not say 3 cores apply at the next node restart", res.Message)
 	}
 	if res.Mining == nil || !*res.Mining || res.CoresUsed != 3 {
 		t.Errorf("read back mining %v, cores %d", res.Mining, res.CoresUsed)
 	}
 
-	if got := miner.starts(); !slices.Equal(got, []string{"[3]"}) {
-		t.Errorf("miner_start params %v, want [[3]]", got)
+	if got := miner.starts(); !slices.Equal(got, []string{"[]"}) {
+		t.Errorf("miner_start params %v, want one call with []", got)
 	}
 	calls := fake.Calls()
 	if i := slices.Index(calls, "miner_start"); i < 0 || !slices.Contains(calls[i:], "eth_mining") {
@@ -298,14 +302,71 @@ func TestPauseResume(t *testing.T) {
 	if !res.OK || res.Paused || res.Mining == nil || !*res.Mining {
 		t.Errorf("resume result %+v, want ok, not paused and mining", res)
 	}
-	if got := miner.starts(); !slices.Equal(got, []string{"[6]"}) {
-		t.Errorf("resume miner_start params %v, want the saved [6]", got)
+	if got := miner.starts(); !slices.Equal(got, []string{"[]"}) {
+		t.Errorf("resume miner_start params %v, want one call with []", got)
+	}
+	if !strings.Contains(res.Message, "6 cores") || !strings.Contains(res.Message, "next node restart") {
+		t.Errorf("resume message %q does not say the saved 6 cores apply at the next node restart", res.Message)
+	}
+	if got := readFile(t, filepath.Join(dir, status.MinerThreadsFile)); got != "6\n" {
+		t.Errorf("miner-threads = %q, want 6", got)
 	}
 	if _, err := os.Stat(paused); !os.IsNotExist(err) {
 		t.Errorf("mining-paused still there after resume (%v)", err)
 	}
 	if got := getPanel(t, h, "/api/mining"); got["paused"] != false || got["mining"] != true {
 		t.Errorf("panel after resume: paused %v, mining %v", got["paused"], got["mining"])
+	}
+}
+
+// TestMinerStartNoParams checks that the fake miner refuses miner_start with a
+// thread count, as the real node does, and that the cores control and resume
+// still start mining on it.
+func TestMinerStartNoParams(t *testing.T) {
+	miner := &fakeMiner{}
+	_, node := startFake(t, miner.handlers())
+
+	var rpcErr *ipc.RPCError
+	err := node.Call(context.Background(), nil, "miner_start", 2)
+	if !errors.As(err, &rpcErr) || !strings.Contains(rpcErr.Message, "Invalid number of input parameters") {
+		t.Fatalf("miner_start(2) on the fake: %v, want the node's invalid parameters error", err)
+	}
+	if err := node.Call(context.Background(), nil, "miner_start"); err != nil {
+		t.Fatalf("miner_start() on the fake: %v", err)
+	}
+	if err := node.Call(context.Background(), nil, "miner_stop"); err != nil {
+		t.Fatal(err)
+	}
+
+	dir := t.TempDir()
+	h := panelHandler(t, node, panelOpts{nodeDir: dir})
+
+	res := decodeResult(t, post(t, h, "/api/mining/cores", `{"cores": 2}`, signedPost))
+	if !res.OK || res.Error != "" || res.Mining == nil || !*res.Mining {
+		t.Errorf("cores result %+v, want ok and mining", res)
+	}
+	if !strings.Contains(res.Message, "next node restart") {
+		t.Errorf("cores message %q does not say the count applies at the next node restart", res.Message)
+	}
+	if got := readFile(t, filepath.Join(dir, status.MinerThreadsFile)); got != "2\n" {
+		t.Errorf("miner-threads = %q, want 2", got)
+	}
+
+	if res := decodeResult(t, post(t, h, "/api/mining/pause", "", signedPost)); !res.OK {
+		t.Fatalf("pause result %+v", res)
+	}
+	res = decodeResult(t, post(t, h, "/api/mining/resume", "", signedPost))
+	if !res.OK || res.Error != "" || res.Mining == nil || !*res.Mining {
+		t.Errorf("resume result %+v, want ok and mining", res)
+	}
+
+	for _, p := range miner.starts() {
+		if p != "[]" && p != "" && p != "null" {
+			t.Errorf("miner_start took params %s, want none", p)
+		}
+	}
+	if got := len(miner.starts()); got != 3 {
+		t.Errorf("miner_start ran %d times, want 3", got)
 	}
 }
 

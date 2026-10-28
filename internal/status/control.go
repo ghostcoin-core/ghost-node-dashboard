@@ -55,8 +55,12 @@ func ValidCores(n, logical int) bool {
 	return n >= 1 && n <= logical
 }
 
-// SetCores saves n to <node-dir>/miner-threads and, unless mining is paused,
-// starts the miner on n cores at once.
+// The node's miner_start takes no parameters and its miner API has no way to
+// set the thread count, so a new core count only reaches the node through
+// <node-dir>/miner-threads when the node next starts.
+
+// SetCores saves n to <node-dir>/miner-threads, which applies at the next node
+// restart, and, unless mining is paused, makes sure the miner is running.
 func SetCores(ctx context.Context, node Caller, env MiningEnv, n int) ControlResult {
 	if !ValidCores(n, env.LogicalCores) {
 		return ControlResult{
@@ -73,17 +77,17 @@ func SetCores(ctx context.Context, node Caller, env MiningEnv, n int) ControlRes
 	res.CoresUsed = n
 	if res.Paused {
 		res.OK = true
-		res.Message = fmt.Sprintf("Saved %d cores. Mining is paused; resuming will use them.", n)
+		res.Message = fmt.Sprintf("Saved %d cores. They apply at the next node restart. Mining is paused.", n)
 		res.Mining = readMining(ctx, node)
 		return res
 	}
-	if err := node.Call(ctx, nil, "miner_start", n); err != nil {
-		res.Error = fmt.Sprintf("Saved %d cores for the next start, but the node did not take them: %s.", n, nodeProblem(err))
+	if err := node.Call(ctx, nil, "miner_start"); err != nil {
+		res.Error = fmt.Sprintf("Saved %d cores for the next node restart, but the node did not start mining: %s.", n, nodeProblem(err))
 		res.Mining = readMining(ctx, node)
 		return res
 	}
 	res.Mining = readMining(ctx, node)
-	res.OK, res.Message = miningOutcome(res.Mining, true, fmt.Sprintf("Mining on %d cores. Saved for restarts and updates.", n))
+	res.OK, res.Message = miningOutcome(res.Mining, true, fmt.Sprintf("Saved %d cores. They apply at the next node restart; until then the node keeps its current core count.", n))
 	if !res.OK {
 		res.Error, res.Message = res.Message, ""
 	}
@@ -112,8 +116,8 @@ func Pause(ctx context.Context, node Caller, env MiningEnv) ControlResult {
 	return res
 }
 
-// Resume removes <node-dir>/mining-paused and starts the miner on the saved
-// core count.
+// Resume removes <node-dir>/mining-paused and starts the miner. The node mines
+// on the core count it started with; a saved count applies at its next restart.
 func Resume(ctx context.Context, node Caller, env MiningEnv) ControlResult {
 	cores := SavedCores(env)
 	res := ControlResult{CoresUsed: cores, Paused: MiningPaused(env.NodeDir)}
@@ -125,13 +129,13 @@ func Resume(ctx context.Context, node Caller, env MiningEnv) ControlResult {
 		}
 	}
 	res.Paused = false
-	if err := node.Call(ctx, nil, "miner_start", cores); err != nil {
+	if err := node.Call(ctx, nil, "miner_start"); err != nil {
 		res.Error = "Cleared the pause, but the node did not start mining: " + nodeProblem(err) + "."
 		res.Mining = readMining(ctx, node)
 		return res
 	}
 	res.Mining = readMining(ctx, node)
-	res.OK, res.Message = miningOutcome(res.Mining, true, fmt.Sprintf("Mining resumed on %d cores.", cores))
+	res.OK, res.Message = miningOutcome(res.Mining, true, fmt.Sprintf("Mining resumed. The saved %d cores apply at the next node restart.", cores))
 	if !res.OK {
 		res.Error, res.Message = res.Message, ""
 	}

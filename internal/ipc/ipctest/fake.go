@@ -129,6 +129,20 @@ func (s *Server) serve(conn net.Conn) {
 	}
 }
 
+// NoParams wraps h so that a call with any parameter gets the error the real
+// node sends for a method that takes none (its miner_start does).
+func NoParams(h Handler) Handler {
+	return func(params json.RawMessage) (any, *Error) {
+		var list []json.RawMessage
+		if len(params) > 0 && string(params) != "null" {
+			if err := json.Unmarshal(params, &list); err != nil || len(list) > 0 {
+				return nil, &Error{Code: -32602, Message: "Invalid number of input parameters to RPC method"}
+			}
+		}
+		return h(params)
+	}
+}
+
 // Value is a handler that always returns v.
 func Value(v any) Handler {
 	return func(json.RawMessage) (any, *Error) { return v, nil }
