@@ -10,8 +10,10 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // LogFile is the node's log inside the node directory.
@@ -181,41 +183,96 @@ func tailLog(nodeDir string, n int) ([]string, error) {
 	return lines, nil
 }
 
-// lostRaces counts the "block lost" lines in the node log. It remembers how
-// far it read, so each count only reads what the node wrote since; a log
-// that was replaced or cut shorter is counted again from the start.
+// ListedLostRaces is how many of the latest lost races the rewards panel
+// lists.
+const ListedLostRaces = 100
+
+// keptLostRaces is how many of the latest lost races are kept in memory, for
+// the list and the block wall.
+const keptLostRaces = 1000
+
+// lostLinePrefix is how much of a "block lost" line is kept to read its
+// block number and time.
+const lostLinePrefix = 4 << 10
+
+// LostRace is one "block lost" line of the node log.
+type LostRace struct {
+	// Number is the height the node lost.
+	Number uint64 `json:"number"`
+	// Time is the unix time of the line's stamp; null when it cannot be
+	// read.
+	Time *int64 `json:"time"`
+}
+
+// lostRaces counts the "block lost" lines in the node log and keeps the
+// latest ones that name their block. It remembers how far it read, so each
+// count only reads what the node wrote since; a log that was replaced or cut
+// shorter is counted again from the start. The zero value reads stamps in
+// the computer's local time.
 type lostRaces struct {
 	mu     sync.Mutex
 	file   fs.FileInfo
 	offset int64
 	n      int
+	// races are the lost races read, oldest first, at most keptLostRaces.
+	races []LostRace
+
+	// now and location date the log stamps; nil means time.Now and
+	// time.Local.
+	now      func() time.Time
+	location *time.Location
 }
 
 var lostMarker = []byte("block lost")
 
 func (c *lostRaces) count(nodeDir string) (int, error) {
+	n, _, err := c.read(nodeDir)
+	return n, err
+}
+
+// heights is the set of block numbers with a lost race. It reads what the
+// node wrote since the last read; with no log to read it is empty.
+func (c *lostRaces) heights(nodeDir string) map[uint64]bool {
+	_, races, err := c.read(nodeDir)
+	if err != nil {
+		return nil
+	}
+	set := make(map[uint64]bool, len(races))
+	for _, r := range races {
+		set[r.Number] = true
+	}
+	return set
+}
+
+// read brings the count up to date and returns it with a copy of the kept
+// lost races, oldest first.
+func (c *lostRaces) read(nodeDir string) (int, []LostRace, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	f, fi, err := openNodeLog(nodeDir)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	defer f.Close()
 	if c.file == nil || !os.SameFile(c.file, fi) || fi.Size() < c.offset {
-		c.offset, c.n = 0, 0
+		c.offset, c.n, c.races = 0, 0, nil
 	}
 	c.file = fi
 	if _, err := f.Seek(c.offset, io.SeekStart); err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 
 	r := bufio.NewReaderSize(f, 64<<10)
 	var lineLen int64
+	var line []byte
 	hit := false
 	for {
 		chunk, err := r.ReadSlice('\n')
 		lineLen += int64(len(chunk))
+		if room := lostLinePrefix - len(line); room > 0 {
+			line = append(line, chunk[:min(room, len(chunk))]...)
+		}
 		if bytes.Contains(bytes.ToLower(chunk), lostMarker) {
 			hit = true
 		}
@@ -225,14 +282,86 @@ func (c *lostRaces) count(nodeDir string) (int, error) {
 		if err != nil {
 			// A line without its newline yet is counted once it is whole.
 			if errors.Is(err, io.EOF) {
-				return c.n, nil
+				return c.n, append([]LostRace(nil), c.races...), nil
 			}
-			return 0, err
+			return 0, nil, err
 		}
 		if hit {
 			c.n++
+			if race, ok := c.parse(line); ok {
+				c.races = append(c.races, race)
+				if extra := len(c.races) - keptLostRaces; extra > 0 {
+					c.races = append([]LostRace(nil), c.races[extra:]...)
+				}
+			}
 		}
 		c.offset += lineLen
-		lineLen, hit = 0, false
+		lineLen, hit, line = 0, false, line[:0]
 	}
+}
+
+var (
+	lostNumber = regexp.MustCompile(`(?:^|\s)number=([0-9][0-9,]*)(?:\s|$)`)
+	logStamp   = regexp.MustCompile(`\[(\d\d)-(\d\d)\|(\d\d):(\d\d):(\d\d)(?:\.(\d{1,9}))?\]`)
+)
+
+// parse reads the block number and the time of a "block lost" line. It is
+// false when the line names no block number. The node writes big numbers
+// with thousands separators (number=1,234,567).
+func (c *lostRaces) parse(raw []byte) (LostRace, bool) {
+	line := colour.ReplaceAllString(strings.TrimRight(string(raw), "\r\n"), "")
+	m := lostNumber.FindStringSubmatch(line)
+	if m == nil {
+		return LostRace{}, false
+	}
+	n, err := strconv.ParseUint(strings.ReplaceAll(m[1], ",", ""), 10, 64)
+	if err != nil {
+		return LostRace{}, false
+	}
+	race := LostRace{Number: n}
+	if t, ok := c.stamp(line); ok {
+		unix := t.Unix()
+		race.Time = &unix
+	}
+	return race, true
+}
+
+// stamp reads a log stamp like [10-28|10:00:02.000]. It has no year: it is
+// the current year, or the previous one when that would put the stamp more
+// than a day in the future.
+func (c *lostRaces) stamp(line string) (time.Time, bool) {
+	m := logStamp.FindStringSubmatch(line)
+	if m == nil {
+		return time.Time{}, false
+	}
+	var v [5]int
+	for i := range v {
+		v[i], _ = strconv.Atoi(m[i+1])
+	}
+	month, day, hour, minute, second := v[0], v[1], v[2], v[3], v[4]
+	if month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59 || second > 59 {
+		return time.Time{}, false
+	}
+	nanos := 0
+	if m[6] != "" {
+		nanos, _ = strconv.Atoi(m[6] + strings.Repeat("0", 9-len(m[6])))
+	}
+	now, loc := time.Now, c.location
+	if c.now != nil {
+		now = c.now
+	}
+	if loc == nil {
+		loc = time.Local
+	}
+	at := now().In(loc)
+	build := func(year int) (time.Time, bool) {
+		t := time.Date(year, time.Month(month), day, hour, minute, second, nanos, loc)
+		// time.Date moves 31 April to 1 May: such a stamp is not a date.
+		return t, t.Month() == time.Month(month) && t.Day() == day
+	}
+	t, ok := build(at.Year())
+	if t.After(at.Add(24 * time.Hour)) {
+		t, ok = build(at.Year() - 1)
+	}
+	return t, ok
 }

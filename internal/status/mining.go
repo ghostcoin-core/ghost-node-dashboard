@@ -36,6 +36,9 @@ type MiningPanel struct {
 	NetworkShare         *float64 `json:"networkShare"`
 	ExpectedBlockSeconds *float64 `json:"expectedBlockSeconds"`
 	TargetBlockSeconds   float64  `json:"targetBlockSeconds"`
+	// HashRateTrend is the latest hash rates, oldest first. Only a
+	// HashTrend fills it; it is empty, never null, otherwise.
+	HashRateTrend []HashSample `json:"hashRateTrend"`
 }
 
 // MiningEnv is what the mining panel reads besides the node itself.
@@ -47,7 +50,7 @@ type MiningEnv struct {
 // FetchMining reads the mining panel. It never fails: a stopped node is
 // reported in the result.
 func FetchMining(ctx context.Context, node Caller, env MiningEnv) MiningPanel {
-	p := MiningPanel{LogicalCores: env.LogicalCores, TargetBlockSeconds: TargetBlockTime.Seconds()}
+	p := MiningPanel{LogicalCores: env.LogicalCores, TargetBlockSeconds: TargetBlockTime.Seconds(), HashRateTrend: []HashSample{}}
 	p.CoresUsed = p.LogicalCores
 	if n, ok := minerThreads(env.NodeDir); ok {
 		p.CoresUsed, p.CoresFromSetting = n, true
@@ -61,6 +64,7 @@ func FetchMining(ctx context.Context, node Caller, env MiningEnv) MiningPanel {
 			LogicalCores:       p.LogicalCores,
 			Paused:             p.Paused,
 			TargetBlockSeconds: p.TargetBlockSeconds,
+			HashRateTrend:      []HashSample{},
 		}
 	}
 

@@ -62,10 +62,33 @@ type RewardsPanel struct {
 	Blocks []WonBlockRow `json:"blocks"`
 	// Indexing is set while the index is behind the node's latest block.
 	Indexing *IndexProgress `json:"indexing"`
+	// NextBefore is the Before to ask for the next page of Blocks; null on
+	// the last page.
+	NextBefore *uint64 `json:"nextBefore"`
 	// LostRaces counts the "block lost" lines in the node log; null when
 	// there is no log to read.
 	LostRaces     *int   `json:"lostRaces"`
 	LostRacesNote string `json:"lostRacesNote"`
+	// LostRaceBlocks are the latest lost races that name their block,
+	// newest first, at most ListedLostRaces; null when there is no log to
+	// read.
+	LostRaceBlocks []LostRace `json:"lostRaceBlocks"`
+	// Daily is the blocks won and their reward per local day.
+	Daily DailyRewards `json:"daily"`
+	// Last7 is the blocks won and their reward over the days of
+	// Daily.Days7.
+	Last7 PeriodTotal `json:"last7"`
+}
+
+// MaxWonBlocksPage is the largest page of blocks won one request lists.
+const MaxWonBlocksPage = 500
+
+// Page picks which blocks won the panel lists: those numbered below Before
+// (every one when nil), newest first, at most Limit (ListedWonBlocks when
+// zero).
+type Page struct {
+	Before *uint64
+	Limit  int
 }
 
 // Amount is a sum in wei and the same sum in whole coins.
@@ -148,7 +171,17 @@ func NewRewards(env RewardsEnv) *Rewards {
 	if r.budget <= 0 {
 		r.budget = ScanBudget
 	}
+	r.lost.now, r.lost.location = r.now, r.location
 	return r
+}
+
+// LostHeights is the set of block numbers the node log has a "block lost"
+// line for. It is empty when there is no log to read.
+func (r *Rewards) LostHeights() map[uint64]bool {
+	if r == nil {
+		return nil
+	}
+	return r.lost.heights(r.nodeDir)
 }
 
 // IndexPath is the index file for a node directory.
@@ -159,19 +192,29 @@ func IndexPath(nodeDir string) string {
 // Fetch brings the index up to the node's latest block and reads the
 // rewards panel. It never fails: a stopped node is reported in the result.
 func (r *Rewards) Fetch(ctx context.Context, node Caller) RewardsPanel {
+	return r.FetchPage(ctx, node, Page{})
+}
+
+// FetchPage is Fetch with the blocks won listed from page. The sums and
+// counts cover every block won, not only the page.
+func (r *Rewards) FetchPage(ctx context.Context, node Caller, page Page) RewardsPanel {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	p := RewardsPanel{LostRacesNote: LostRaceNote}
-	if n, err := r.lost.count(r.nodeDir); err == nil {
+	if n, races, err := r.lost.read(r.nodeDir); err == nil {
 		p.LostRaces = &n
+		p.LostRaceBlocks = []LostRace{}
+		for i := len(races) - 1; i >= 0 && len(p.LostRaceBlocks) < ListedLostRaces; i-- {
+			p.LostRaceBlocks = append(p.LostRaceBlocks, races[i])
+		}
 	}
 	if err := r.load(); err != nil {
 		p.IndexError = err.Error()
 	}
 	down := func(err error) RewardsPanel {
 		p.Running, p.Error, p.Balance, p.Indexing = false, downMessage(err), nil, nil
-		r.fill(&p)
+		r.fill(&p, page)
 		return p
 	}
 
@@ -188,6 +231,7 @@ func (r *Rewards) Fetch(ctx context.Context, node Caller) RewardsPanel {
 		// Without a payout address there are no blocks to look for.
 		p.Blocks = []WonBlockRow{}
 		p.RewardToday, p.RewardTotal = amount(new(big.Int)), amount(new(big.Int))
+		p.Daily, p.Last7 = r.daily(nil)
 		return p
 	}
 	head, err := quantity(ctx, node, "eth_blockNumber")
@@ -223,15 +267,24 @@ func (r *Rewards) Fetch(ctx context.Context, node Caller) RewardsPanel {
 		a := amount(bal)
 		p.Balance = &a
 	}
-	r.fill(&p)
+	r.fill(&p, page)
 	return p
 }
 
-// fill sets the blocks won and the sums from the index.
-func (r *Rewards) fill(p *RewardsPanel) {
+// fill sets the blocks won on page and the sums from the index.
+func (r *Rewards) fill(p *RewardsPanel, page Page) {
+	limit := page.Limit
+	if limit <= 0 {
+		limit = ListedWonBlocks
+	}
 	today, total := new(big.Int), new(big.Int)
 	p.Blocks = []WonBlockRow{}
-	p.WonToday, p.WonTotal, p.UnknownRewards = 0, 0, 0
+	p.WonToday, p.WonTotal, p.UnknownRewards, p.NextBefore = 0, 0, 0, nil
+	var won []wonBlock
+	if r.idx != nil && r.idx.Address != "" {
+		won = r.idx.Blocks
+	}
+	p.Daily, p.Last7 = r.daily(won)
 	if r.idx != nil && r.idx.Address != "" {
 		addr := r.idx.Address
 		p.PayoutAddress = &addr
@@ -255,8 +308,16 @@ func (r *Rewards) fill(p *RewardsPanel) {
 			} else {
 				p.UnknownRewards++
 			}
-			if len(p.Blocks) < ListedWonBlocks {
+			if page.Before != nil && b.Number >= *page.Before {
+				continue
+			}
+			if len(p.Blocks) < limit {
 				p.Blocks = append(p.Blocks, row)
+			} else if p.NextBefore == nil {
+				// More blocks below the page: the next one starts under
+				// the last block listed.
+				next := p.Blocks[len(p.Blocks)-1].Number
+				p.NextBefore = &next
 			}
 		}
 	}

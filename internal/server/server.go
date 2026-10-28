@@ -73,6 +73,9 @@ type handler struct {
 	nodeEnv status.NodeEnv
 	mining  status.MiningEnv
 	rewards *status.Rewards
+	network *status.Network
+	trend   *status.HashTrend
+	now     func() time.Time
 	nodeDir string
 	mux     *http.ServeMux
 
@@ -102,10 +105,16 @@ func New(cfg Config) http.Handler {
 		},
 		mining:  status.MiningEnv{NodeDir: cfg.NodeDir, LogicalCores: cfg.LogicalCores},
 		rewards: status.NewRewards(status.RewardsEnv{NodeDir: cfg.NodeDir, Now: cfg.Now}),
+		trend:   &status.HashTrend{},
+		now:     cfg.Now,
 		nodeDir: cfg.NodeDir,
 		mux:     http.NewServeMux(),
 
 		restartWait: cfg.RestartWait,
+	}
+	h.network = status.NewNetwork(status.NetworkEnv{Rewards: h.rewards})
+	if h.now == nil {
+		h.now = time.Now
 	}
 	if cfg.Services != nil {
 		h.services = *cfg.Services
@@ -250,19 +259,50 @@ func (h *handler) nodePanel(w http.ResponseWriter, r *http.Request) {
 func (h *handler) miningPanel(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), StatusTimeout)
 	defer cancel()
-	writeJSON(w, status.FetchMining(ctx, h.node, h.mining))
+	p := status.FetchMining(ctx, h.node, h.mining)
+	h.trend.Record(&p, h.now())
+	writeJSON(w, p)
 }
 
 func (h *handler) networkPanel(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), StatusTimeout)
 	defer cancel()
-	writeJSON(w, status.FetchNetwork(ctx, h.node))
+	writeJSON(w, h.network.Fetch(ctx, h.node))
 }
 
+// rewardsPanel takes ?before=<number>&limit=<n> to page through the blocks
+// won: those below before, newest first, at most limit.
 func (h *handler) rewardsPanel(w http.ResponseWriter, r *http.Request) {
+	page, msg := rewardsPage(r)
+	if msg != "" {
+		badRequest(w, map[string]string{"error": msg})
+		return
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), StatusTimeout)
 	defer cancel()
-	writeJSON(w, h.rewards.Fetch(ctx, h.node))
+	writeJSON(w, h.rewards.FetchPage(ctx, h.node, page))
+}
+
+// rewardsPage reads the paging query, or says in plain words what is wrong
+// with it.
+func rewardsPage(r *http.Request) (status.Page, string) {
+	var page status.Page
+	q := r.URL.Query()
+	if q.Has("before") {
+		n, err := strconv.ParseUint(q.Get("before"), 10, 64)
+		if err != nil {
+			return page, "before must be a whole block number, such as 1200."
+		}
+		page.Before = &n
+	}
+	if q.Has("limit") {
+		n, err := strconv.Atoi(q.Get("limit"))
+		if err != nil || n < 1 || n > status.MaxWonBlocksPage {
+			return page, fmt.Sprintf("limit must be a whole number from 1 to %d.", status.MaxWonBlocksPage)
+		}
+		page.Limit = n
+	}
+	return page, ""
 }
 
 func (h *handler) logPanel(w http.ResponseWriter, r *http.Request) {

@@ -23,6 +23,9 @@ type NetworkPanel struct {
 	NetworkHashRate    *float64   `json:"networkHashRate"`
 	TargetBlockSeconds float64    `json:"targetBlockSeconds"`
 	Blocks             []BlockRow `json:"blocks"`
+	// Wall is up to WallBlocks of the latest blocks, newest first. Only a
+	// Network tracker fills it; it may be shorter while it is being read.
+	Wall []WallBlock `json:"wall"`
 }
 
 // BlockRow is one of the latest blocks. Own is set for blocks the node mined.
@@ -32,14 +35,32 @@ type BlockRow struct {
 	Miner      string `json:"miner"`
 	MinerShort string `json:"minerShort"`
 	Own        bool   `json:"own"`
+	// Transactions is how many transactions the block holds; null when the
+	// node does not send the list.
+	Transactions *int `json:"transactions"`
 }
 
 // FetchNetwork reads the network panel. It never fails: a stopped node is
 // reported in the result.
 func FetchNetwork(ctx context.Context, node Caller) NetworkPanel {
+	p, _ := fetchNetwork(ctx, node)
+	return p
+}
+
+// networkRead is what fetchNetwork read on the way, for the block wall.
+type networkRead struct {
+	// own is the node's payout address, or "".
+	own string
+	// blocks are the latest blocks read for the panel, newest first.
+	blocks []*block
+}
+
+// fetchNetwork reads the network panel and returns the blocks it read. The
+// read is nil when the node is down or has no height.
+func fetchNetwork(ctx context.Context, node Caller) (NetworkPanel, *networkRead) {
 	p := NetworkPanel{TargetBlockSeconds: TargetBlockTime.Seconds()}
-	down := func(err error) NetworkPanel {
-		return NetworkPanel{Error: downMessage(err), TargetBlockSeconds: p.TargetBlockSeconds}
+	down := func(err error) (NetworkPanel, *networkRead) {
+		return NetworkPanel{Error: downMessage(err), TargetBlockSeconds: p.TargetBlockSeconds}, nil
 	}
 
 	if _, err := probe(ctx, node); err != nil {
@@ -52,7 +73,7 @@ func FetchNetwork(ctx context.Context, node Caller) NetworkPanel {
 		return down(err)
 	}
 	if p.Height == nil {
-		return p
+		return p, nil
 	}
 	height := *p.Height
 
@@ -60,6 +81,7 @@ func FetchNetwork(ctx context.Context, node Caller) NetworkPanel {
 	if lost(err) {
 		return down(err)
 	}
+	read := &networkRead{own: own}
 
 	p.Blocks = []BlockRow{}
 	var latest *block
@@ -71,19 +93,21 @@ func FetchNetwork(ctx context.Context, node Caller) NetworkPanel {
 		if b == nil {
 			continue
 		}
+		read.blocks = append(read.blocks, b)
 		if latest == nil {
 			latest = b
 		}
 		p.Blocks = append(p.Blocks, BlockRow{
-			Number:     b.Number,
-			Time:       b.Time,
-			Miner:      b.Miner,
-			MinerShort: ShortAddress(b.Miner),
-			Own:        sameAddress(own, b.Miner),
+			Number:       b.Number,
+			Time:         b.Time,
+			Miner:        b.Miner,
+			MinerShort:   ShortAddress(b.Miner),
+			Own:          sameAddress(own, b.Miner),
+			Transactions: b.Transactions,
 		})
 	}
 	if latest == nil {
-		return p
+		return p, read
 	}
 
 	if latest.Difficulty != nil {
@@ -94,7 +118,7 @@ func FetchNetwork(ctx context.Context, node Caller) NetworkPanel {
 
 	span := min(uint64(AverageOver), latest.Number)
 	if span == 0 {
-		return p
+		return p, read
 	}
 	older, err := getBlock(ctx, node, latest.Number-span)
 	if lost(err) {
@@ -104,5 +128,5 @@ func FetchNetwork(ctx context.Context, node Caller) NetworkPanel {
 		avg := float64(latest.Time-older.Time) / float64(span)
 		p.AverageBlockSeconds, p.AverageOverBlocks = &avg, &span
 	}
-	return p
+	return p, read
 }
