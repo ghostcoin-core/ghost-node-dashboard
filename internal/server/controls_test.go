@@ -432,16 +432,15 @@ func TestControlsRefused(t *testing.T) {
 
 func TestPageHasControls(t *testing.T) {
 	h := newHandler(t, nil)
-	page := do(h, http.MethodGet, "/", goodHost, withSession).Body.String()
-	for _, want := range []string{`id="cores-input"`, `type="range"`, `id="mining-pause"`, `id="mining-resume"`, "mining-paused", "restart resumes mining"} {
-		if !strings.Contains(page, want) {
-			t.Errorf("page lacks %q", want)
+	js := screenJS(t, h)
+	for _, want := range []string{`id: "cores-input"`, `type: "range"`, `id: "mining-pause"`, `id: "mining-resume"`, "mining-paused", "restart resumes mining"} {
+		if !strings.Contains(js, want) {
+			t.Errorf("screen files lack %q", want)
 		}
 	}
-	js := do(h, http.MethodGet, "/static/app.js", goodHost, withSession).Body.String()
 	for _, api := range []string{"/api/mining/cores", "/api/mining/pause", "/api/mining/resume"} {
 		if !strings.Contains(js, `"`+api+`"`) {
-			t.Errorf("app.js does not post to %s", api)
+			t.Errorf("screen files do not post to %s", api)
 		}
 	}
 }
