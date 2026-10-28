@@ -117,6 +117,31 @@ progress[hidden] { display: none; }
 }
 .blocks tr.own { background: var(--soft); }
 
+.log {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  max-height: 480px;
+  overflow-y: auto;
+  border-top: 1px solid var(--line);
+}
+.log li {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+.log code {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.log .meaning {
+  display: block;
+  color: var(--violet);
+  font-size: 0.8rem;
+}
+
 .card-head {
   display: flex;
   align-items: center;

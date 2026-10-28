@@ -85,6 +85,41 @@
     <p class="note" id="network-note"></p>
     <p class="updated">Updated <span data-updated>never</span></p>
   </section>
+
+  <section class="card" id="rewards-panel" aria-labelledby="rewards-title">
+    <div class="card-head">
+      <h2 id="rewards-title">Rewards</h2>
+      <span class="pill pill-wait" data-state>Checking…</span>
+    </div>
+    <p class="message" data-message hidden></p>
+    <dl class="fields">
+      <div><dt>Blocks won today</dt><dd id="rewards-today-count" class="mono">–</dd></div>
+      <div><dt>Earned today</dt><dd id="rewards-today" class="mono">–</dd></div>
+      <div><dt>Blocks won in total</dt><dd id="rewards-total-count" class="mono">–</dd></div>
+      <div><dt>Earned in total</dt><dd id="rewards-total" class="mono">–</dd></div>
+      <div><dt>Payout balance</dt><dd id="rewards-balance" class="mono">–</dd></div>
+      <div><dt>Lost races</dt><dd id="rewards-lost" class="mono">–</dd></div>
+    </dl>
+    <p class="note" id="rewards-lost-note"></p>
+    <h3>Blocks won</h3>
+    <table class="blocks">
+      <thead><tr><th scope="col">Block</th><th scope="col">Time</th><th scope="col">Reward</th></tr></thead>
+      <tbody id="rewards-blocks"></tbody>
+    </table>
+    <p class="note" id="rewards-note"></p>
+    <p class="updated">Updated <span data-updated>never</span></p>
+  </section>
+
+  <section class="card" id="log-panel" aria-labelledby="log-title">
+    <div class="card-head">
+      <h2 id="log-title">Node log</h2>
+      <span class="pill pill-wait" data-state>Checking…</span>
+    </div>
+    <p class="message" data-message hidden></p>
+    <p class="note" id="log-note"></p>
+    <ol class="log" id="log-lines"></ol>
+    <p class="updated">Updated <span data-updated>never</span></p>
+  </section>
 </main>
 </body>
 </html>

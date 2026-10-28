@@ -32,7 +32,12 @@ The page refreshes every 5 seconds without reloading. Each panel says "Node not 
 - **Mining:** mining or paused; cores used (`<node-dir>/miner-threads`, else every core) of the computer's cores; the node's hash rate when it reports one; the payout address with a copy button; and estimates of your share of the network and the time to your next block.
 - **Network:** height; average block time over the last 100 blocks; difficulty; an estimated network hash rate (difficulty ÷ the target block time); and the last 20 blocks, with your own in violet.
 
-The estimates use a target block time of 15 seconds. Each panel reads one endpoint, behind the dashboard key: `/api/node`, `/api/mining` and `/api/network`.
+- **Rewards:** the blocks your payout address won (number, time and reward), how many you won and what they earned today (this computer's time) and in total, and the payout address balance. A block's reward is the payout address's balance change across that block, read from the node; when the node no longer keeps the balances of an old block its reward shows as unknown and is left out of the sums. The panel also counts the node log's "block lost" lines: each one is a lost race, where your node found a block but another node's block at the same height was accepted first. That is normal and earns nothing.
+- **Node log:** the last 200 lines of `<node-dir>/node.log`, newest first, with a plain meaning beside common lines (mined potential block, block lost, imported new chain segment, looking for peers). The log is only read, and only from inside the node folder: a `node.log` that links elsewhere is refused.
+
+The dashboard finds your blocks by reading the chain over IPC and keeps what it found in `<node-dir>/dashboard-index.json` (owner-only), with the last block it read, so after a restart it only reads new blocks. On a long chain the first reading is spread over several refreshes. When the chain is reorganised it drops the blocks the new chain replaced and reads again from there; when the payout address changes it starts over.
+
+The estimates use a target block time of 15 seconds. Each panel reads one endpoint, behind the dashboard key: `/api/node`, `/api/mining`, `/api/network`, `/api/rewards` and `/api/log`.
 
 ### Access
 
