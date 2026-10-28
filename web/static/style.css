@@ -104,6 +104,28 @@ progress[hidden] { display: none; }
   accent-color: var(--violet);
 }
 
+.control-row input[type="text"] {
+  flex: 1;
+  min-width: 200px;
+  font-size: 0.85rem;
+  padding: 4px 8px;
+  border: 1px solid var(--muted);
+  border-radius: 6px;
+}
+
+.output {
+  margin: 12px 0 0;
+  max-height: 240px;
+  overflow: auto;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--page);
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.output[hidden] { display: none; }
+
 .action {
   font: inherit;
   font-size: 0.9rem;
