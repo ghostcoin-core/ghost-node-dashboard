@@ -1,0 +1,182 @@
+/* Network screen. network.js adds this file once, when the screen mounts.
+   Every rule is scoped to the screen's root, so no other screen changes. */
+
+#screen-network { display: block; }
+
+/* The four number cards. */
+
+#screen-network .nw-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  gap: 12px;
+  margin: 0;
+}
+#screen-network .nw-stat {
+  min-width: 0;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--white);
+}
+#screen-network .nw-stat-label {
+  margin: 0;
+  color: var(--quiet);
+  font-size: 14px;
+  font-weight: 400;
+}
+#screen-network .nw-stat-value {
+  margin: 4px 0 0;
+  color: var(--ink);
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+#screen-network .nw-stat-hint {
+  margin: 2px 0 0;
+  color: var(--quiet);
+  font-size: 13px;
+}
+
+/* Cards and their header rows. */
+
+#screen-network .nw-card { margin-top: 16px; }
+
+#screen-network .nw-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+#screen-network .nw-sub {
+  margin: 2px 0 0;
+  color: var(--quiet);
+  font-size: 14px;
+}
+
+/* The segmented switch: a pair of real buttons, one pressed. */
+
+#screen-network .nw-seg {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--mist);
+  font-size: 14px;
+}
+#screen-network .nw-seg-button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--body);
+  font: inherit;
+  cursor: pointer;
+}
+#screen-network .nw-seg-button:hover { color: var(--ink); }
+#screen-network .nw-seg-button[aria-pressed="true"] {
+  background: var(--white);
+  color: var(--ink);
+  font-weight: 500;
+}
+#screen-network .nw-seg-button:focus-visible {
+  outline: 2px solid var(--violet);
+  outline-offset: 1px;
+}
+
+#screen-network .message { margin: 12px 0 0; }
+
+/* Latest blocks. */
+
+#screen-network .nw-scroll {
+  max-width: 100%;
+  margin-top: 12px;
+  overflow-x: auto;
+}
+#screen-network .nw-blocks {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+#screen-network .nw-blocks th {
+  padding: 8px 10px;
+  color: var(--quiet);
+  font-weight: 500;
+  text-align: left;
+}
+#screen-network .nw-blocks td {
+  padding: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  white-space: nowrap;
+}
+#screen-network .nw-blocks .nw-right { text-align: right; }
+#screen-network .nw-blocks .nw-quiet { color: var(--body); }
+#screen-network .nw-blocks tr.nw-own { background: var(--violet-tint); }
+#screen-network .nw-blocks td.nw-empty {
+  color: var(--quiet);
+  white-space: normal;
+}
+#screen-network .nw-you {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+#screen-network .nw-ghost {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+/* Node log: the one box on ink. */
+
+#screen-network .nw-log-note {
+  margin: 14px 0 0;
+  color: var(--body);
+}
+#screen-network .nw-log {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: var(--ink);
+  color: var(--white);
+  overflow-x: auto;
+}
+#screen-network .nw-log li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 6px 0;
+}
+#screen-network .nw-time {
+  min-width: 64px;
+  color: #A9A6C2;
+  font-size: 13px;
+}
+#screen-network .nw-meaning {
+  flex: 1 1 280px;
+  color: var(--white);
+}
+#screen-network .nw-raw {
+  flex: 1 1 280px;
+  color: #A9A6C2;
+  font-size: 12px;
+  white-space: pre;
+}
+#screen-network .nw-log-raw .nw-raw {
+  color: var(--white);
+  font-size: 13px;
+}
+
+/* Phone width: switch buttons grow to 44 px, cards wrap to one column. */
+
+@media (max-width: 640px) {
+  #screen-network .nw-seg-button { min-height: 44px; }
+  #screen-network .nw-log { padding: 12px 14px; }
+}
