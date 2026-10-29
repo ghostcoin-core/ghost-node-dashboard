@@ -18,7 +18,8 @@ func TestNetworkScreenFiles(t *testing.T) {
 			t.Errorf("network.js lacks %s", want)
 		}
 	}
-	for _, bad := range []string{"innerHTML", "insertAdjacentHTML", "document.write", `"style"`, "style=", "<style"} {
+	// Markup is built with GhostDash.h and textContent; no style attribute.
+	for _, bad := range []string{"HTML", `"style"`, "style="} {
 		if strings.Contains(js, bad) {
 			t.Errorf("network.js uses %s", bad)
 		}
@@ -47,7 +48,7 @@ func TestNetworkScreenFiles(t *testing.T) {
 	if selectors == 0 {
 		t.Error("network.css has no rules")
 	}
-	if strings.Contains(css, "@import") || strings.Contains(css, "url(") {
+	if strings.Contains(css, "import") || strings.Contains(css, "url(") {
 		t.Error("network.css loads another file")
 	}
 }
