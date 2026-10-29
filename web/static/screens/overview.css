@@ -1,0 +1,321 @@
+/* Overview screen. overview.js loads this file once, when the screen mounts.
+   Every rule starts with #screen-overview so the shared rules in style.css
+   stay untouched. */
+
+#screen-overview { display: block; }
+
+/* Top row: "Updated N s ago" and Pause / Resume mining. */
+
+#screen-overview .ov-top-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+#screen-overview .ov-top-row .updated {
+  margin: 0;
+  color: var(--quiet-2);
+  font-family: var(--mono);
+  font-size: 13px;
+}
+#screen-overview .ov-top .message { margin: 12px 0 0; }
+
+#screen-overview .ov-pause {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--ink);
+  color: var(--white);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+#screen-overview .ov-resume { background: var(--violet); }
+#screen-overview .ov-icon { width: 14px; height: 14px; flex: none; }
+
+#screen-overview button:disabled,
+#screen-overview input:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+#screen-overview button:focus-visible,
+#screen-overview input:focus-visible,
+#screen-overview a:focus-visible {
+  outline: 2px solid var(--violet);
+  outline-offset: 2px;
+}
+
+/* Number cards. */
+
+#screen-overview .ov-numbers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  gap: 12px;
+  margin-top: 24px;
+}
+#screen-overview .ov-num {
+  min-width: 0;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--white);
+}
+#screen-overview .ov-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+#screen-overview .ov-label { color: var(--quiet); font-size: 14px; }
+#screen-overview .ov-mint {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--mint);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+#screen-overview .ov-value {
+  margin: 4px 0 0;
+  color: var(--ink);
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+#screen-overview .ov-unit {
+  margin-left: 6px;
+  color: var(--quiet);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+#screen-overview .ov-hint {
+  margin: 2px 0 0;
+  color: var(--quiet);
+  font-size: 13px;
+}
+#screen-overview .ov-spark {
+  display: block;
+  width: 100%;
+  height: 22px;
+  margin-top: 4px;
+}
+
+/* Rows of cards: the wall beside the mining card, then the two lists. */
+
+#screen-overview .ov-pair {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 16px;
+  margin-top: 16px;
+}
+#screen-overview .ov-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+#screen-overview .ov-link,
+#screen-overview .ov-change {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--violet);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+}
+#screen-overview .ov-link:hover,
+#screen-overview .ov-change:hover { text-decoration: underline; }
+#screen-overview .ov-empty { margin: 16px 0 0; color: var(--body); }
+
+/* The block wall. */
+
+#screen-overview .ov-wall-card { flex: 999 1 560px; min-width: 0; }
+#screen-overview .ov-wall {
+  display: grid;
+  grid-template-columns: repeat(30, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 16px;
+}
+#screen-overview .ov-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  box-sizing: border-box;
+  border-radius: 3px;
+  background: var(--line);
+}
+#screen-overview .ov-cell-newest { background: var(--ink); }
+#screen-overview .ov-cell-own { background: var(--violet); }
+#screen-overview .ov-cell-lost {
+  background: var(--white);
+  border: 2px dashed var(--violet);
+}
+#screen-overview .ov-ghost { width: 70%; height: 70%; }
+
+#screen-overview .ov-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--body);
+  font-size: 13px;
+}
+#screen-overview .ov-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#screen-overview .ov-swatch {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  box-sizing: border-box;
+  border-radius: 3px;
+}
+#screen-overview .ov-swatch-newest { background: var(--ink); }
+#screen-overview .ov-swatch-other { background: var(--line); }
+#screen-overview .ov-swatch-own { background: var(--violet); }
+#screen-overview .ov-swatch-lost { border: 2px dashed var(--violet); }
+
+/* The mining card. */
+
+#screen-overview .ov-mining {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 300px;
+  min-width: 0;
+}
+#screen-overview .ov-cores-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+  color: var(--ink);
+  font-weight: 500;
+}
+#screen-overview .ov-cores-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+#screen-overview .ov-step {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--ink);
+  font: inherit;
+  font-size: 18px;
+  cursor: pointer;
+}
+#screen-overview .ov-step:hover:not(:disabled) { background: var(--mist); }
+/* The track looks 24 px tall; the box is 44 px so it is easy to touch. */
+#screen-overview .ov-cores-row input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  margin: 0;
+  accent-color: var(--violet);
+}
+#screen-overview .ov-scale {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 52px;
+  color: var(--quiet-2);
+  font-size: 12px;
+}
+#screen-overview .ov-payout {
+  margin: 16px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  color: var(--body);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+#screen-overview .ov-address { color: var(--ink); }
+#screen-overview .ov-change { margin-left: 6px; }
+#screen-overview .ov-note {
+  margin: auto 0 0;
+  padding-top: 16px;
+  color: var(--quiet-2);
+  font-size: 13px;
+}
+
+/* Blocks you won and what the node is doing. */
+
+#screen-overview .ov-list-card { flex: 1 1 420px; min-width: 0; }
+#screen-overview .ov-list {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+#screen-overview .ov-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 0;
+  border-top: 1px solid var(--line);
+}
+#screen-overview .ov-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: 5px;
+  background: var(--violet);
+}
+#screen-overview .ov-tile-ghost { width: 15px; height: 15px; }
+#screen-overview .ov-won-number {
+  flex: 1;
+  min-width: 0;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+#screen-overview .ov-won-when { min-width: 110px; color: var(--quiet); }
+#screen-overview .ov-won-reward {
+  min-width: 88px;
+  color: var(--ink);
+  text-align: right;
+}
+#screen-overview .ov-log-time {
+  min-width: 44px;
+  flex: none;
+  color: var(--quiet-2);
+  font-size: 13px;
+}
+#screen-overview .ov-log-meaning {
+  min-width: 0;
+  color: var(--body);
+  overflow-wrap: anywhere;
+}
+
+/* Phone width: the flex bases already stack the cards; the wall keeps its
+   30 columns with smaller gaps. */
+
+@media (max-width: 760px) {
+  #screen-overview .ov-wall { gap: 2px; }
+  #screen-overview .ov-won-when { min-width: 0; }
+  #screen-overview .ov-won-reward { min-width: 0; }
+}
