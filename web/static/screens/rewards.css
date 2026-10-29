@@ -1,0 +1,276 @@
+/* The Rewards screen. rewards.js links this file once when the screen mounts;
+   every rule is scoped to #screen-rewards and uses the colours and fonts of
+   style.css. */
+
+#screen-rewards { display: block; }
+
+#screen-rewards .rw-top {
+  display: flex;
+  justify-content: flex-end;
+}
+
+#screen-rewards .copy {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--ink);
+  font-weight: 500;
+  font-size: 1rem;
+}
+#screen-rewards .copy:hover { background: var(--mist); }
+
+#screen-rewards .message { margin: 16px 0 0; }
+
+/* Reading the won-blocks index. */
+
+#screen-rewards .rw-indexing {
+  margin: 16px 0 0;
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--white);
+}
+#screen-rewards .rw-index-text { margin: 0; color: var(--ink); }
+#screen-rewards .rw-indexing progress { margin-top: 12px; }
+
+/* Number cards. */
+
+#screen-rewards .rw-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  gap: 12px;
+  margin-top: 24px;
+}
+#screen-rewards .rw-stat {
+  min-width: 0;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--white);
+}
+#screen-rewards .rw-stat p { margin: 0; }
+#screen-rewards .rw-stat-label { color: var(--quiet); font-size: 14px; }
+#screen-rewards .rw-stat-value { overflow-wrap: anywhere; }
+#screen-rewards .rw-stat-value .mono {
+  color: var(--ink);
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+#screen-rewards .rw-unit { color: var(--quiet); font-size: 14px; }
+#screen-rewards .rw-stat .rw-stat-hint {
+  margin-top: 2px;
+  color: var(--quiet);
+  font-size: 13px;
+}
+
+/* Blocks won per day. */
+
+#screen-rewards .rw-chart { margin-top: 16px; }
+#screen-rewards .rw-chart-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+#screen-rewards .rw-switch {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--mist);
+  font-size: 14px;
+}
+#screen-rewards .rw-seg {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--body);
+  font: inherit;
+  cursor: pointer;
+}
+#screen-rewards .rw-seg:hover { color: var(--ink); }
+#screen-rewards .rw-seg[aria-pressed="true"] {
+  background: var(--white);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+#screen-rewards .rw-plot {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 16px;
+  align-items: end;
+  height: 200px;
+  margin-top: 20px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+/* The longer views set their gap from the width per day in rewards.js and,
+   when the days would get too thin, a minimum width that scrolls here. */
+#screen-rewards .rw-plot-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+#screen-rewards .rw-plot-long { gap: 2px; }
+#screen-rewards .rw-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  height: 100%;
+  min-width: 0;
+}
+#screen-rewards .rw-count {
+  color: var(--body);
+  font-size: 13px;
+  line-height: 20px;
+}
+#screen-rewards .rw-plot-dense .rw-count { visibility: hidden; }
+#screen-rewards .rw-bar {
+  width: 100%;
+  max-width: 56px;
+  min-height: 2px;
+  border-radius: 6px 6px 2px 2px;
+  background: var(--violet);
+}
+#screen-rewards .rw-bar-today { background: #B8A8FF; }
+
+#screen-rewards .rw-labels {
+  display: grid;
+  gap: 16px;
+  margin-top: 8px;
+}
+#screen-rewards .rw-labels-long { gap: 2px; }
+#screen-rewards .rw-day {
+  min-width: 0;
+  color: var(--quiet);
+  font-size: 13px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: visible;
+}
+
+#screen-rewards .rw-empty {
+  margin: 16px 0 0;
+  color: var(--body);
+}
+
+/* Row 3: every block won and the lost races. */
+
+#screen-rewards .rw-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+  margin-top: 16px;
+}
+#screen-rewards .rw-blocks-card { flex: 999 1 520px; }
+#screen-rewards .rw-lost { flex: 1 1 300px; }
+
+#screen-rewards .rw-scroll {
+  max-width: 100%;
+  margin-top: 12px;
+  overflow-x: auto;
+}
+#screen-rewards .rw-table {
+  width: 100%;
+  min-width: 420px;
+  border-collapse: collapse;
+}
+#screen-rewards .rw-table th {
+  padding: 0 10px 8px;
+  text-align: left;
+  color: var(--quiet);
+  font-size: 14px;
+  font-weight: 500;
+}
+#screen-rewards .rw-table td {
+  padding: 11px 10px;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+}
+#screen-rewards .rw-table .rw-when { color: var(--body); }
+#screen-rewards .rw-table .rw-num { text-align: right; }
+#screen-rewards .rw-table .rw-unknown { color: var(--quiet); }
+
+#screen-rewards .rw-pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+#screen-rewards .rw-caption {
+  margin: 0;
+  color: var(--quiet);
+  font-size: 14px;
+}
+#screen-rewards .rw-page-buttons { display: flex; gap: 8px; }
+#screen-rewards .rw-page {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+#screen-rewards .rw-page:hover:enabled { background: var(--mist); }
+#screen-rewards .rw-page:disabled {
+  color: var(--quiet-2);
+  font-weight: 400;
+  cursor: default;
+}
+
+#screen-rewards .rw-lost-count {
+  color: var(--quiet);
+  font-size: 14px;
+  font-weight: 400;
+}
+#screen-rewards .rw-lost-note {
+  margin: 8px 0 0;
+  color: var(--body);
+}
+#screen-rewards .rw-lost-none {
+  margin: 12px 0 0;
+  color: var(--quiet);
+}
+#screen-rewards .rw-lost-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+#screen-rewards .rw-lost-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 0;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+}
+#screen-rewards .rw-lost-time { color: var(--quiet); }
+
+#screen-rewards .rw-seg:focus-visible,
+#screen-rewards .rw-page:focus-visible,
+#screen-rewards .copy:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* Phone width: 44 px switch buttons and a wrapping address. */
+
+@media (max-width: 640px) {
+  #screen-rewards .rw-seg { min-height: 44px; }
+  #screen-rewards .rw-switch { flex: 1 1 auto; }
+  #screen-rewards .rw-seg { flex: 1 1 0; }
+}
