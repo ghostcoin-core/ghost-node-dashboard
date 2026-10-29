@@ -1,0 +1,297 @@
+/* Settings screen. Every rule is scoped to the screen's root, so this file
+   changes nothing on the other screens. Colours and fonts come from the
+   variables in style.css. */
+
+#screen-settings { display: block; }
+
+#screen-settings .st-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+#screen-settings .st-card { padding: 22px; }
+
+#screen-settings .st-head { display: flex; flex-direction: column; gap: 2px; }
+#screen-settings .st-head h2 { margin: 0; }
+
+#screen-settings p { margin: 0; }
+
+#screen-settings .st-desc {
+  color: var(--quiet);
+  font-size: 14px;
+}
+
+#screen-settings .st-strong {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+#screen-settings .st-note {
+  margin-top: 12px;
+  color: var(--quiet);
+  font-size: 14px;
+}
+
+#screen-settings .message.st-status {
+  margin-top: 12px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+/* Mining. */
+
+#screen-settings .st-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 18px;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+#screen-settings .st-range {
+  display: block;
+  width: 100%;
+  height: 24px;
+  margin: 8px 0 0;
+  accent-color: var(--violet);
+  cursor: pointer;
+}
+#screen-settings .st-range:disabled { cursor: default; }
+
+#screen-settings .st-scale {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+  color: var(--quiet-2);
+  font-size: 12px;
+}
+
+#screen-settings .st-divider {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+/* The switch: the button is 52 x 44 px, so the hit area is large enough;
+   the 30 px track and the knob are drawn inside it. */
+
+#screen-settings .st-switch {
+  position: relative;
+  flex: none;
+  width: 52px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+#screen-settings .st-switch::before {
+  content: "";
+  position: absolute;
+  top: 7px;
+  left: 0;
+  width: 52px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--quiet-2);
+}
+#screen-settings .st-switch::after {
+  content: "";
+  position: absolute;
+  top: 10px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--white);
+  transition: left 0.15s ease;
+}
+#screen-settings .st-switch[aria-checked="true"]::before { background: var(--violet); }
+#screen-settings .st-switch[aria-checked="true"]::after { left: 25px; }
+#screen-settings .st-switch:disabled { cursor: default; opacity: 0.5; }
+#screen-settings .st-switch:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* Payout address. */
+
+#screen-settings .st-form { margin: 0; }
+
+#screen-settings .st-label {
+  display: block;
+  margin-top: 18px;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+#screen-settings .st-input {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 13px;
+}
+#screen-settings .st-input::placeholder { color: var(--quiet-2); }
+
+#screen-settings .st-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+#screen-settings .st-payout-row {
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+#screen-settings .st-lock-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--quiet);
+  font-size: 13px;
+}
+#screen-settings .st-lock { flex: none; width: 16px; height: 16px; }
+
+/* Buttons: every target is at least 44 px tall. */
+
+#screen-settings .st-save,
+#screen-settings .st-button {
+  min-height: 44px;
+  border-radius: 10px;
+  font: inherit;
+  cursor: pointer;
+}
+#screen-settings .st-save {
+  padding: 0 20px;
+  border: 0;
+  background: var(--violet);
+  color: var(--white);
+  font-weight: 600;
+}
+#screen-settings .st-button {
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  background: var(--white);
+  color: var(--ink);
+  font-weight: 500;
+}
+#screen-settings .st-button:hover { background: var(--mist); }
+#screen-settings .st-save:disabled,
+#screen-settings .st-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+#screen-settings .st-save:focus-visible,
+#screen-settings .st-button:focus-visible,
+#screen-settings .st-input:focus-visible,
+#screen-settings .st-range:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* Updates. */
+
+#screen-settings .st-switch-row {
+  gap: 16px;
+  margin-top: 14px;
+}
+
+#screen-settings .st-actions { margin-top: 16px; }
+
+#screen-settings .st-output {
+  margin: 12px 0 0;
+  max-height: 240px;
+  overflow: auto;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--mist);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Node. */
+
+#screen-settings .st-node-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+#screen-settings .st-confirm { display: none; }
+#screen-settings .st-confirm.st-open {
+  display: block;
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--violet-tint);
+  color: var(--ink);
+}
+#screen-settings .st-confirm-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+#screen-settings .st-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 24px;
+  margin: 14px 0 0;
+}
+#screen-settings .st-details div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+#screen-settings .st-details dt { color: var(--quiet); }
+#screen-settings .st-details dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--ink);
+  font-size: 14px;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+#screen-settings .st-foot {
+  margin-top: 24px;
+  color: var(--quiet-2);
+  font-size: 13px;
+}
+
+/* Phone width: one column, and the confirm buttons stack. */
+
+@media (max-width: 760px) {
+  #screen-settings .st-card { padding: 16px; }
+  #screen-settings .st-details { grid-template-columns: minmax(0, 1fr); }
+  #screen-settings .st-confirm-buttons { flex-direction: column; }
+  #screen-settings .st-confirm-buttons button { width: 100%; }
+}
