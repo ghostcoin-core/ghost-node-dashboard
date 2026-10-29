@@ -180,6 +180,14 @@ a { color: var(--violet); }
 }
 .node-line { color: var(--quiet); margin-top: 4px !important; }
 .node-line.mono { font-size: 0.78rem; }
+/* Quiet warning: 0 peers, so the node holds off mining. */
+.peers-none {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--violet-tint);
+  color: var(--ink);
+  font-weight: 600;
+}
 
 .dot {
   width: 8px;

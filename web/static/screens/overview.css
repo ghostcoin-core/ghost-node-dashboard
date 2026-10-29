@@ -4,6 +4,23 @@
 
 #screen-overview { display: block; }
 
+/* Quiet note while the node waits for other nodes. */
+
+#screen-overview .ov-peers-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--violet-tint);
+  color: var(--ink);
+}
+#screen-overview .ov-peers-note p { margin: 0; }
+
 /* Top row: "Updated N s ago" and Pause / Resume mining. */
 
 #screen-overview .ov-top-row {

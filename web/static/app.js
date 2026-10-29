@@ -330,7 +330,13 @@ var GhostDash = (function () {
       text("side-state", s.running ? "Node running" : "Node stopped");
       dot.className = s.running ? "dot dot-on" : "dot";
       var peers = s.peers === null || s.peers === undefined ? "–" : num(s.peers);
-      text("side-network", show(s.networkName, String) + " · " + peers + (s.peers === 1 ? " peer" : " peers"));
+      var count = h("span", { text: peers + (s.peers === 1 ? " peer" : " peers") });
+      // No peers means the node holds off mining: say it in the quiet warning.
+      if (s.peers === 0) count.className = "peers-none";
+      var line = document.getElementById("side-network");
+      clear(line);
+      line.appendChild(document.createTextNode(show(s.networkName, String) + " · "));
+      line.appendChild(count);
       text("side-version", show(s.clientVersion));
       text("side-chain", "Chain ID " + show(s.chainId));
     }, function () {
