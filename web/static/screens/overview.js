@@ -125,6 +125,16 @@
     return (data.node !== null && !data.node.running) || (data.mining !== null && !data.mining.running);
   }
 
+  // A node with no peers holds off mining until it connects to the network.
+  var WAITING_FOR_PEERS = "Waiting for other nodes. Mining starts once your node connects to the network.";
+
+  // waitingForPeers is true when mining is on but the node has 0 peers.
+  function waitingForPeers() {
+    var node = data.node;
+    var mining = data.mining;
+    return !stopped() && node !== null && node.peers === 0 && mining !== null && !mining.paused;
+  }
+
   function sentence() {
     var node = data.node;
     var mining = data.mining;
@@ -132,6 +142,7 @@
     if (stopped()) {
       return "The node is stopped. Start it and this page will update by itself.";
     }
+    if (waitingForPeers()) return WAITING_FOR_PEERS;
     var parts = [];
     if (mining) {
       if (mining.paused) parts.push("Mining is paused.");
@@ -181,6 +192,19 @@
       h("div", { class: "ov-top-row" }, [h("p", { class: "updated" }, ["Updated ", stamp]), pause, resume]),
       h("p", { class: "message", id: "ov-pause-result", role: "status", hidden: true }),
     ]);
+  }
+
+  // The note shown while the node waits for other nodes.
+
+  function peersNote() {
+    return h("section", { class: "ov-peers-note", id: "ov-peers-note", role: "status", hidden: true }, [
+      h("p", { text: WAITING_FOR_PEERS }),
+      h("a", { href: "#/network", class: "ov-link", text: "Network" }),
+    ]);
+  }
+
+  function renderPeersNote() {
+    el("ov-peers-note").hidden = !waitingForPeers();
   }
 
   // Number cards.
@@ -548,6 +572,7 @@
 
   function renderAll() {
     screen.setSentence(sentence());
+    renderPeersNote();
     renderNumbers();
     renderWall();
     renderMining();
@@ -573,6 +598,7 @@
     mount: function (root, s) {
       screen = s;
       loadStylesheet();
+      root.appendChild(peersNote());
       root.appendChild(topRow());
       root.appendChild(numbers());
       root.appendChild(h("div", { class: "ov-pair" }, [wallCard(), miningCard()]));
