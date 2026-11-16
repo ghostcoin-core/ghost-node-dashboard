@@ -8,7 +8,7 @@ A small program that runs next to a Ghost node and shows it in your browser, on 
 
 The dashboard listens on 127.0.0.1 only and talks to the node through the node's own local connection. Nothing is reachable from other computers.
 
-It is installed with the node by the one-line install at https://get.ghostcoin.com.
+It is installed with the node by the one-line install at https://get.specter.cash.
 
 ## Running it
 
